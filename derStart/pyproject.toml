@@ -1,0 +1,16 @@
+[project]
+name = "derstart"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "gymnasium>=1.2.2",
+    "numpy>=2.3.5",
+    "pygame>=2.6.1",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.1.0",
+]
