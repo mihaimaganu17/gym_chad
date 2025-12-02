@@ -41,9 +41,6 @@ class BlackjackAgent:
         self.training_error = []
 
 
-        print(self.q_values.items())
-
-
     def get_action(self, obs: tuple[int, int, bool]) -> int:
         """Choose an action using epsilon-greedy strategy
 

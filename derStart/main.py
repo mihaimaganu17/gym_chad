@@ -1,11 +1,70 @@
 from qagent import BlackjackAgent
+from tqdm import tqdm
 
 import numpy as np
 import gymnasium as gym
 
+
+n_episodes = 100_000        # Number of hands to practice
+
 def _envs():
     for i in gym.envs.registry.keys():
         print(i)
+
+
+def init_env() -> gym.Env:
+    """Initialise the gym environment
+
+    Returns: The gym.Env environment
+    """
+    # the "sab" argument toggles whether the environment uses the rules defined in Sutton & Barto’s
+    # Reinforcement Learning textbook.
+    # When sab=True, the environment uses the exact Blackjack rules described in the textbook,
+    # player sticks only on 20 or 21 (Instead of the more standard rule of sticking on 17+)
+    # When sab=Fals, this uses the more standard Casino-style version where player sticks on 17 or
+    # higher values and returns follow common blackjack rules instead of the textbook-specific
+    # variant.
+    env = gym.make("Blackjack-v1", sab=False)
+    env = gym.wrappers.RecordEpisodeStatistics(env, buffer_length=n_episodes)
+
+    return env
+
+
+def init_agent(env: gym.Env) -> BlackjackAgent:
+    """Initialise the BlackjackAgent
+    
+    Args:
+        env: The gymnasium environment
+
+    Returns: the BlackjackAgent
+    """
+
+    learning_rate = 0.01        # How fast to learn (hight = faster but less stable)
+    start_epsilon = 1.0         # Start with 100% random actions
+    epsilon_decay = start_epsilon / (n_episodes / 2) # Reduce exploration over time
+    final_epsilon = 0.1         # Always keep some exploration
+
+    agent = BlackjackAgent(
+        env=env,
+        learning_rate=learning_rate,
+        initial_epsilon=start_epsilon,
+        epsilon_decay=epsilon_decay,
+        final_epsilon=final_epsilon,
+    )
+
+    return agent
+
+
+def play_blackjack():
+    """Main Q-Learning loop using the Blackjack environment and Agent
+    """
+    # Initialise the environment
+    env = init_env()
+    # Initialise the agent
+    agent = init_agent(env)
+
+    # Clean up after finishing
+    env.close()
 
 
 def main():
@@ -36,6 +95,7 @@ def main():
         total_reward += reward
         episode_over = terminated or truncated
 
+
     print(f"Episode finished! Total reward: {total_reward}")
     print(env.observation_space)
     BlackjackAgent(env, 0.1, 1.0, 0.1, 0.1)
@@ -57,4 +117,5 @@ def _sample_timesteps():
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    play_blackjack()
