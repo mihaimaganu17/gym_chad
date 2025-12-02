@@ -88,5 +88,69 @@ class GridWorldEnv(gym.Env):
                 self._agent_location - self._target_location, ord=1
             )
         }
-
     
+
+    def reset(self, seed=None, options=None):
+        """Initiate a new episode of the environment
+
+        Args:
+            seed: An integer used to seed the RNG such that we get a reproducible results across
+                resets
+            options: Particularities that can be passed by the user to this specific environment
+        """
+        # gym.Env uses numpy random generator and it is recommended we use it as well. We reseed it
+        # with the given seed
+        super().reset(seed=seed)
+
+        # Choose the agent's location uniformly at random. Returns an ndarray of 2 integers
+        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+
+        # We will also sample the target's location randomly until it does not coincide with the
+        # agent's location
+        self._target_location = self._agent_location
+        while np.array_equal(self._target_location, self._agent_location):
+            # Resample
+            self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+
+
+        # The first observation and info after reset
+        observation = self._get_obs()
+        info = self._get_info()
+
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return observation, info
+    
+
+    def step(self, action: Actions):
+        """Computes the state of the environment after taking the given action and returns a 5-tuple
+        that describes the new state of the environment along with a reward
+
+        Args:
+            action: One of the 4 possible `Actions` value
+
+        Returns: a 5-tuple containing:
+            observation: A dictionary with the `agent` and the `target` location
+            reward: A reward for the agent for taking the action (1 if terminated, 0 otherwise)
+            terminated: Whether or not the episode is finished
+            truncated: Whether of not we reached the maximum allowed steps for the episode
+            info: The Manhattan distance between the agent and the target
+        """
+        # Map the given `action` to the direction the agent is walkin
+        direction = self._action_to_direction[action]
+        # Compute the new agent location using `np.clip` to make sure we don't leave the grid
+        self._agent_location = np.clip(self._agent_location + direction, 0, self.size-1)
+
+        # If the agent reached the target, signal that the episode is done
+        terminated = np.array_equal(self._agent_location, self._target_location)
+        # Binary sparse rewards
+        reward = 1 if terminated else 0
+        # Get the new state's observation and the distance
+        observation = self._get_obs()
+        info = self._get_info()
+
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return observation, reward, terminated, False, info
