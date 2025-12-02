@@ -1,6 +1,7 @@
+from qagent import BlackjackAgent
+
 import numpy as np
 import gymnasium as gym
-
 
 def _envs():
     for i in gym.envs.registry.keys():
@@ -37,7 +38,9 @@ def main():
 
     print(f"Episode finished! Total reward: {total_reward}")
     print(env.observation_space)
+    BlackjackAgent(env, 0.1, 1.0, 0.1, 0.1)
     env.close()
+
 
 
 def _sample_timesteps():
