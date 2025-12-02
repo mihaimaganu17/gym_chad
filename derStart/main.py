@@ -40,7 +40,7 @@ def init_agent(env: gym.Env) -> BlackjackAgent:
     Returns: the BlackjackAgent
     """
 
-    learning_rate = 0.001        # How fast to learn (hight = faster but less stable)
+    learning_rate = 0.03        # How fast to learn (hight = faster but less stable)
     start_epsilon = 1.0         # Start with 100% random actions
     epsilon_decay = start_epsilon / (n_episodes / 2) # Reduce exploration over time
     final_epsilon = 0.1         # Always keep some exploration
@@ -87,6 +87,7 @@ def play_blackjack():
         # Reduce exploration rate (agent becomes less random over time)
         agent.decay_epsilon()
 
+    agent.test()
     # Analyse the results
     analyse(env, agent)
 
