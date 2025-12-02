@@ -56,11 +56,10 @@ class BlackjackAgent:
         # With probability epsilon: explore (random action)
         if np.random.random() < self.epsilon:
             return self.env.action_space.sample()
-        
         # With probability (1-epsilon): exploit (best known action)
         else:
             # Return the index of the best possible action
-            return (int(np.argmax(self.q_value[obs])))
+            return (int(np.argmax(self.q_values[obs])))
         
     
     def update(
@@ -89,7 +88,7 @@ class BlackjackAgent:
         # Bellman start
         # What's the best we could do from the next state?
         # (Zero if episode terminated - no future rewards possible)
-        future_q_value = (not terminated) * np.max(self.q_value[next_obs])
+        future_q_value = (not terminated) * np.max(self.q_values[next_obs])
         # What should the Q-value be?
         target = reward + self.dicount_factor * future_q_value
         # How wrong was our current estimate?

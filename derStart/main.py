@@ -1,4 +1,5 @@
 from qagent import BlackjackAgent
+from analyse import analyse
 from tqdm import tqdm
 
 import numpy as np
@@ -39,7 +40,7 @@ def init_agent(env: gym.Env) -> BlackjackAgent:
     Returns: the BlackjackAgent
     """
 
-    learning_rate = 0.01        # How fast to learn (hight = faster but less stable)
+    learning_rate = 0.001        # How fast to learn (hight = faster but less stable)
     start_epsilon = 1.0         # Start with 100% random actions
     epsilon_decay = start_epsilon / (n_episodes / 2) # Reduce exploration over time
     final_epsilon = 0.1         # Always keep some exploration
@@ -62,6 +63,32 @@ def play_blackjack():
     env = init_env()
     # Initialise the agent
     agent = init_agent(env)
+
+    for episode in tqdm(range(n_episodes)):
+        # Start a new hand
+        obs, info = env.reset()
+        done = False
+
+        # Play one complete hand
+        while not done:
+            # Agent chooses action (initially random, gradually more intelligent)
+            action = agent.get_action(obs)
+            
+            # Take action and observe result
+            next_obs, reward, terminated, truncated, info = env.step(action)
+            
+            # Learn from this experience
+            agent.update(obs, action, reward, terminated, next_obs)
+
+            # Move to next state
+            done = terminated or truncated
+            obs = next_obs
+
+        # Reduce exploration rate (agent becomes less random over time)
+        agent.decay_epsilon()
+
+    # Analyse the results
+    analyse(env, agent)
 
     # Clean up after finishing
     env.close()
