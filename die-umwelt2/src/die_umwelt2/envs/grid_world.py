@@ -246,6 +246,10 @@ class GridWorldEnv(gym.Env):
             )
 
     
-
+    def close(self):
+        # Close the used resources and clean up
+        if self.window is not None:
+            pygame.display.quit()
+            pygame.quit()
 
 

@@ -12,19 +12,17 @@ wheels = [
 ]
 
 [[package]]
-name = "dieumwelt"
+name = "die-umwelt2"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "gymnasium" },
-    { name = "numpy" },
     { name = "pygame" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "gymnasium", specifier = ">=1.2.2" },
-    { name = "numpy", specifier = ">=2.3.5" },
     { name = "pygame", specifier = ">=2.6.1" },
 ]
 
