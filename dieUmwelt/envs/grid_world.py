@@ -2,6 +2,7 @@ from enum import Enum
 
 import gymnasium as gym
 import numpy as np
+import pygame
 
 
 # All possible actions that the agent could take
@@ -154,3 +155,97 @@ class GridWorldEnv(gym.Env):
             self._render_frame()
 
         return observation, reward, terminated, False, info
+
+
+    def render(self):
+        if self.render_mode == "rgb_array":
+            return self._render_frame()
+        
+    
+    def _render_frame(self):
+        # Initialize the window and pygame
+        if self.window is None and self.render_mode == "human":
+            pygame.init()
+            pygame.display.init()
+            # Set a display with desired (width, height)
+            self.window = pygame.display.set_mode((self.window_size, self.window_size))
+
+        # Initialize the clock
+        if self.clock is None and self.render_mode == "human":
+            self.clock = pygame.time.Clock()
+
+        # Create a new white canvas
+        canvas = pygame.Surface((self.window_size, self.window_size))
+        canvas.fill([0xff, 0xff, 0xff])
+
+        # The size of a single grid square in pixels
+        pix_square_size = (self.window_size / self.size)
+
+        # Create the target as a rectangle with location (left, top) and full grid square dimensions (width, height).
+        target_rect = pygame.Rect(
+            # (left, top)
+            (pix_square_size * self._target_location),
+            # (width, height)
+            (pix_square_size, pix_square_size),
+        )
+
+        # Draw a red target on the canvas
+        pygame.draw.rect(
+            canvas,
+            (0xff, 0, 0),
+            target_rect,
+        )
+
+        # Create the agent as a blue circle and draw it on the canvas
+        agent_circle = pygame.draw.circle(
+            canvas,
+            (0, 0, 0xff),
+            # center of the circle (sliding it to the midle from the top left corner of the square)
+            (self._agent_location + 0.5) * pix_square_size,
+            # The radius of the circle
+            pix_square_size / 3,
+        )
+
+        # Add some gridlines
+        for x in range(self.size + 1):
+            # Draw horizontal lines
+            pygame.draw.line(
+                canvas,
+                0,
+                [0, x] * pix_square_size,
+                [self.size, x] * pix_square_size,
+                width=3,
+            )
+            # Draw vertical lines
+            pygame.draw.line(
+                canvas,
+                0,
+                [x, 0] * pix_square_size,
+                [x, self.size] * pix_square_size,
+                width=3,
+            )
+
+        if self.render_mode == "human":
+            # Draw the canvas onto the display
+            self.window.blit(canvas, canvas.get_rect())
+            # Process the pygame event handlers from the event queue
+            pygame.event.pump()
+            # Update the visible display surface
+            pygame.display.update()
+
+            # Making sure we run at the desired FPS
+            self.clock.tick(self.metadata["render_fps"])
+
+        else:
+            # rgb_array
+            # Pygame has the rgb axes stored in the following order (width, height, 3)
+            # Whereas numpy, gym render frame, PIL, OpenCV, matplotlib have the (height, widht, 3)
+            # order, that is why we transpose
+            return np.transpose(
+                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
+            )
+
+    
+
+
+
