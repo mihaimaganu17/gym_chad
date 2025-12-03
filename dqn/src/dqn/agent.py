@@ -58,6 +58,7 @@ class CartPoleAgent:
         # Initialize the replay memory for the agent
         self.replay = ReplayMemory(10000)
 
+        self.epsilon = epsilon_start
         self.epsilon_start = epsilon_start
         self.epsilon_end = epsilon_end
         self.epsilon_decay = epsilon_decay
@@ -74,7 +75,7 @@ class CartPoleAgent:
         sample = random.random()
 
         # If the value is higher than our threshold, we use the policy network to select an action
-        if sample > self.epsilon_start:
+        if sample > self.epsilon:
             # Ignore the gradient, we only want a forward computation
             with torch.no_grad():
                 if type(state) is np.ndarray:
@@ -140,7 +141,7 @@ class CartPoleAgent:
         # Compute a mask of non final next states, which mark if transitions have the next_state
         # `None` or not. These are used to index the next_state values above in order to populate
         # them.
-        non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)))
+        non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool)
         
         # Make sure we don't compute gradients when using the target net
         with torch.no_grad():

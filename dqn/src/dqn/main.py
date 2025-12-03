@@ -27,10 +27,9 @@ def cart_pole_env(seed=None):
         env.observation_space.seed(seed)
 
     # number of episodes to run
-    n_episodes = 600
+    n_episodes = 500
     # keeps track of the reward across episodes
     total_rewards = []
-
 
     agent = CartPoleAgent(env)
 
