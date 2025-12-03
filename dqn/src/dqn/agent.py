@@ -7,6 +7,7 @@ import torch
 import torch.optim as optim
 import random
 import numpy as np
+import math
 
 
 class CartPoleAgent:
@@ -16,7 +17,7 @@ class CartPoleAgent:
         learning_rate: float = 3e-4,
         epsilon_start: float = 0.9,
         epsilon_end: float = 0.01,
-        epsilon_decay: float = 0.01,
+        epsilon_decay: float = 2500,
         discount_factor: float = 0.99,
         tau: float = 0.005,
         batch_size: int = 128,
@@ -93,9 +94,12 @@ class CartPoleAgent:
             return torch.tensor([[self.env.action_space.sample()]], dtype=torch.long)
 
 
-    def decay_epsilon(self):
+    def decay_epsilon(self, steps):
         """Reduce the epsilon with respect to the given decay, within the bounds"""
-        max(self.epsilon_end, self.epsilon_start - self.epsilon_decay)
+        self.epsilon = max(self.epsilon_end, self.epsilon_start - self.epsilon_decay)
+     
+        self.epsilon = self.epsilon_end + (self.epsilon_start - self.epsilon_end) * \
+            math.exp(-1. * steps / self.epsilon_decay)
 
     
     def update_agent(self):

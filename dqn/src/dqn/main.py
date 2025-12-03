@@ -52,13 +52,14 @@ def cart_pole_env(seed=None):
             means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
             means = torch.cat((torch.zeros(99), means))
             plt.plot(means.numpy())
-
-
+    
+    total_steps = 0
     # Each episode
     for episode_idx in range(n_episodes):
         # Keep track if we are done or not and the number of iterations in each episode
         done = False
         steps = 0
+
         episode_reward = 0
         # Reset the environment
         obs, _info = env.reset()
@@ -81,6 +82,7 @@ def cart_pole_env(seed=None):
             done = terminated or truncated
 
             steps += 1
+            total_steps += 1
 
             if terminated:
                 # If we terminated the episode, we signal it with a next_state of None
@@ -97,7 +99,7 @@ def cart_pole_env(seed=None):
             # reduce the exploration rate. It is better to have it here as oppose to between
             # episodes because different episodes have different lengths. Also it reduces the
             # likelyhood of a sudden jump in decay
-            agent.decay_epsilon()
+            agent.decay_epsilon(total_steps)
 
             # Perform one step of the optimisation and update the target net
             agent.update_agent()
