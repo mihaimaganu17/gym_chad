@@ -56,8 +56,10 @@ def cart_pole_env(seed=None):
             done = terminated or truncated
 
             steps += 1
-        # reduce the exploration rate
-        agent.decay_epsilon()
+            
+            # reduce the exploration rate
+            agent.decay_epsilon()
+        
 
         total_rewards.append(episode_reward)
 

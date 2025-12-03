@@ -85,7 +85,7 @@ class CartPoleAgent:
         
         else:
             # We explore and sample from the action space
-            return self.env.action_space.sample()
+            return torch.tensor([[self.env.action_space.sample()]], dtype=torch.long)
 
 
     def decay_epsilon(self):
