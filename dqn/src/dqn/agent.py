@@ -2,7 +2,10 @@ from dqn.dqn import DQN
 from dqn.replay import ReplayMemory, Transition
 
 import gymnasium as gym
+import torch
 import torch.optim as optim
+import random
+import numpy as np
 
 
 class CartPoleAgent:
@@ -12,7 +15,7 @@ class CartPoleAgent:
         learning_rate: float = 3e-4,
         epsilon_start: float = 0.9,
         epsilon_end: float = 0.01,
-        epsilon_decay: float = 2500,
+        epsilon_decay: float = 0.01,
         discount_factor: float = 0.99,
         target_update_rate: float = 0.005,
         batch_size: int = 128,
@@ -59,4 +62,34 @@ class CartPoleAgent:
         self.batch_size = batch_size
 
 
-    #def get_action(self, state: Transition)
+    def get_action(self, state):
+        """Given a state, or a batch of states, return the set """
+        # Sample a value
+        sample = random.random()
+
+        # If the value is higher than our threshold, we use the policy network to select an action
+        if sample > self.epsilon_start:
+            # Ignore the gradient, we only want a forward computation
+            with torch.no_grad():
+                if type(state) is np.ndarray:
+                    state = torch.from_numpy(state)
+                # the policy net's probabilities for each action
+                probs_per_action = self.policy_net(state)
+                # get the one with the highest probability (over columns)
+                likely_action = probs_per_action.max(1)
+                # get the indeces of that max value and convert it to a 2d array to match the batch
+                # processing of the tensor
+                action_idx = likely_action.indices.view(1, 1)
+
+                return action_idx
+        
+        else:
+            # We explore and sample from the action space
+            return self.env.action_space.sample()
+
+
+    def decay_epsilon(self):
+        """Reduce the epsilon with respect to the given decay, within the bounds"""
+        max(self.epsilon_end, self.epsilon_start - self.epsilon_decay)
+
+    

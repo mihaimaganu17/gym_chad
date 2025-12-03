@@ -24,5 +24,43 @@ def cart_pole_env(seed=None):
         env.action_space.seed(seed)
         env.observation_space.seed(seed)
 
-    CartPoleAgent(env)
-    
+    # number of episodes to run
+    n_episodes = 100000
+    # keeps track of the reward across episodes
+    total_rewards = []
+
+
+    agent = CartPoleAgent(env)
+
+    # Each episode
+    for _ in range(n_episodes):
+        # Keep track if we are done or not and the number of iterations in each episode
+        done = False
+        steps = 0
+        episode_reward = 0
+
+        # While the episode is running
+        while not done:
+            # Reset the environment
+            obs, _info = env.reset()
+
+            # Sample an action
+            action = agent.get_action(obs)
+
+            # Take that action on the environment
+            obs, reward, terminated, truncated, info = env.step(action.item())
+            # Update the total reward for this episode
+            episode_reward += reward
+
+            # We are done with the episode if we terminated or reached maximum steps
+            done = terminated or truncated
+
+            steps += 1
+        # reduce the exploration rate
+        agent.decay_epsilon()
+
+        total_rewards.append(episode_reward)
+
+    print(total_rewards)
+
+        

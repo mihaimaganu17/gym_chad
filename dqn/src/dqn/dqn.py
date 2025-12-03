@@ -1,6 +1,8 @@
 from torch import nn
 from torch.nn import functional as F
 
+import torch
+
 
 class DQN(nn.Module):
     """Feed forward neural network that takes in the difference between the current and the previous
@@ -17,4 +19,12 @@ class DQN(nn.Module):
         print("Forward input: ", type(x))
         x = F.relu(self.layer1(x))
         x = F.relu(self.layer2(x))
-        return self.layer3(x)
+        probs = self.layer3(x)
+
+        # If we have a single entry, we reshape it to be over 2 dimensions, such that it conforms to
+        # the batch processing. One row represents a forward pass for a single input x value. As a
+        # result we will have one row (single input) and 2 columns (2 viable actions)
+        if probs.shape == (2,):
+            probs = probs.view(1, 2)
+
+        return probs
