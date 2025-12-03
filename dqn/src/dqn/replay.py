@@ -3,6 +3,8 @@ import random
 
 # A mapping of the current state and action (time-step t) and the respective next state and reward
 # after taking the action (time-step t+1)
+# A `Transition` which contains a `None` next_state means that after taking the `action`, the agent
+# terminated the challenge for the environment
 Transition = namedtuple("Transition", ["state", "action", "next_state", "reward"])
 
 
@@ -22,5 +24,5 @@ class ReplayMemory(object):
         return random.sample(self.memory, batch_size)
 
     def __len__(self):
-        len(self.memory)
+        return len(self.memory)
 

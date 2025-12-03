@@ -1,5 +1,6 @@
 from dqn.dqn import DQN
 from dqn.replay import ReplayMemory, Transition
+from torch import nn
 
 import gymnasium as gym
 import torch
@@ -17,7 +18,7 @@ class CartPoleAgent:
         epsilon_end: float = 0.01,
         epsilon_decay: float = 0.01,
         discount_factor: float = 0.99,
-        target_update_rate: float = 0.005,
+        tau: float = 0.005,
         batch_size: int = 128,
     ):
         """Initialize an agent that uses a DQN network with replay memory to win in the CartPole env
@@ -29,7 +30,8 @@ class CartPoleAgent:
             epsilon_end: the minimum epsilon allowed for sampling
             epsilon_decay: how much is the epsilon reduces after each episode
             discount_factor: how much we value the future rewards
-            target_update_rate: How oftern to update the target network using the policy network
+            tau: How we are blending the weights of the policy network with the ones 
+                from the target network
             batch_size: The number of transitions sampled from the replay buffer 
         """
         self.env = env
@@ -60,6 +62,9 @@ class CartPoleAgent:
         self.epsilon_decay = epsilon_decay
         self.discount_factor = discount_factor
         self.batch_size = batch_size
+        self.tau = tau
+
+        self.losses = []
 
 
     def get_action(self, state):
@@ -93,3 +98,84 @@ class CartPoleAgent:
         max(self.epsilon_end, self.epsilon_start - self.epsilon_decay)
 
     
+    def update_agent(self):
+        # If there is not enough replay memory to fill the batch, return
+        if len(self.replay) < self.batch_size:
+            return
+
+        # Sample from the replay memory
+        transitions = self.replay.sample(self.batch_size)
+        # Transpose the batch from a batch of `Transition`'s to a `Transition` of batches.
+        # See https://stackoverflow.com/a/19343/3343043
+        batch = Transition(*zip(*transitions))
+
+        # Non-final next states are transitions that don't have a next_state `None` value
+        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
+        
+
+        # Concatenate all batch elements into a single 1-dim tensor
+        state_batch = torch.cat(batch.state)
+        action_batch = torch.cat(batch.action)
+        reward_batch = torch.cat(batch.reward)
+
+        # Compute the Q - value at this current time-step.
+        # This computes the probability of the action taken for each instance in the batch
+        full_action_probs = self.policy_net(state_batch)
+        # Get the values from the probabilities. With gather on dim=1, we basically use action_batch
+        # to index the probabilities exported by a policy network forward pass
+        # Example:
+        #   action_probs = [[0.095, 0.12], [0.144, 0.543]]
+        #   action_batch = [[0], [1]]
+        #   action_probs.gather(1, action_batch) will be [[0.095], [0.543]]
+        actual_action_probs = full_action_probs.gather(1, action_batch)
+
+        # Compute the future value of all next states (time-step: t+1)
+        # Create a new zero-filled tensor to hold the values for the entire batch
+        next_state_values = torch.zeros(self.batch_size)
+
+        # Compute a mask of non final next states, which mark if transitions have the next_state
+        # `None` or not. These are used to index the next_state values above in order to populate
+        # them.
+        non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)))
+        
+        # Make sure we don't compute gradients when using the target net
+        with torch.no_grad():
+            # We compute the expected values for non final states using the "current" target network.
+            # We select the best "reward" using max(1).values. Actually these are probabilities of
+            # the actions to be taken
+            next_state_values[non_final_states_mask] = \
+                self.target_net(non_final_next_states).max(1).values
+        
+        # Compute the expected Q values
+        expected_state_action_values = (next_state_values * self.discount_factor) + reward_batch
+
+        # Compute the Huber loss
+        huber_loss = nn.SmoothL1Loss()
+        loss = huber_loss(actual_action_probs, expected_state_action_values.unsqueeze(1))
+
+        self.losses.append(loss)
+
+        # Optimize the model, reset all gradients
+        self.optimizer.zero_grad()
+        # Backward pass
+        loss.backward()
+        # Clip the gradient to prevent exploding gradients or very low values
+        torch.nn.utils.clip_grad_value_(self.policy_net.parameters(), 100)
+        # Perform a single optimisation step
+        self.optimizer.step()
+
+        # Soft update the target network's weights, blending the target weights with the policy ones
+        target_net_state_dict = self.target_net.state_dict()
+        policy_net_state_dict = self.policy_net.state_dict()
+
+        for key in policy_net_state_dict:
+            target_net_state_dict[key] = policy_net_state_dict[key]*self.tau \
+                + target_net_state_dict[key]*(1-self.tau)
+        self.target_net.load_state_dict(target_net_state_dict)
+
+
+
+
+
+
+            
