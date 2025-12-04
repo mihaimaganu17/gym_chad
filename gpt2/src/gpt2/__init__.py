@@ -1,5 +1,9 @@
+from gpt2.train import GPT
+
 def hello() -> str:
     gpt2_showcase()
+    model = GPT.from_pretrained('gpt2')
+    print("didn't crash")
     return "Hello from gpt2!"
 
 

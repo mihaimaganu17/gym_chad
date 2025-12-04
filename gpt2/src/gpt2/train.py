@@ -1,7 +1,26 @@
 from torch import nn
 from torch.nn import functional as F
+from dataclasses import dataclass
+
 
 import torch
+
+
+@dataclass
+class GPTConfig:
+    """Configuration parameters for GPT2 layers"""
+    # Context size, number of positions that GPT can train and reproduce on. 50,000 BPE merges
+    # + 256 bytes tokens + 1 <|endoftext|> token
+    block_size: int = 1024
+    # Size of vocabulary (in our case, only letters (upper, lower) and numbers)
+    vocab_size: int = 50257
+    # Number of hidden layers (each hidden layer is actually a block). Original GPT 2 has 12
+    n_h_layer: int = 12
+    # Number of attention heads???
+    n_head: int = 12
+    # Size of the embeddings of each token. Original has 768.
+    n_embd: int = 768
+
 
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: GPTConfig):
@@ -50,6 +69,7 @@ class CausalSelfAttention(nn.Module):
 
 class MLP(nn.Module):
     def __init__(self, config):
+        super().__init__()
         self.config = config
         self.c_fc = nn.Linear(self.config.n_embd, 4 * self.config.n_embd)
         # Like ReLU, but smoother and without the dead neurons
@@ -66,6 +86,7 @@ class MLP(nn.Module):
 class Block(nn.Module):
     """Self-attention block as described in the GPT2 paper"""
     def __init__(self, config):
+        super().__init__()
         self.config = config
         self.ln_1 = nn.LayerNorm(self.config.n_embd)
         self.attn = CausalSelfAttention(config)
@@ -90,19 +111,6 @@ class Block(nn.Module):
         return x
 
 
-class GPTConfig:
-    """Configuration parameters for GPT2 layers"""
-    # Context size, number of positions that GPT can train and reproduce on. 50,000 BPE merges
-    # + 256 bytes tokens + 1 <|endoftext|> token
-    block_size: int = 1024
-    # Size of vocabulary (in our case, only letters (upper, lower) and numbers)
-    vocab_size: int = 50257
-    # Number of hidden layers (each hidden layer is actually a block). Original GPT 2 has 12
-    n_h_layer: int = 12
-    # Number of attention heads???
-    n_head: int = 12
-    # Size of the embeddings of each token. Original has 768.
-    n_embd: int = 768
 
 
 class GPT(nn.Module):
@@ -118,14 +126,15 @@ class GPT(nn.Module):
             # Weights of the position embeddings
             wpe = nn.Embedding(self.config.block_size, self.config.n_embd),
             # Weights of the hidden layers (which are actually hidden blocks with multiple layers)
-            wh = nn.ModuleList([Block(config) for _ in range(self.config.n_h_layer)]),
+            h = nn.ModuleList([Block(config) for _ in range(self.config.n_h_layer)]),
             # TODO
             ln_f = nn.LayerNorm(self.config.n_embd),
         ))
         # Final classifier that converts the embeddings into probability for indexes of tokens
-        self.ln_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
+        self.lm_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
-    
+
+    @classmethod 
     def from_pretrained(cls, model_type):
         """Loads pretrained GPT-2 model weights from hf"""
         assert model_type in {'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}
@@ -153,6 +162,9 @@ class GPT(nn.Module):
         # copy while ensuring all of the parameters are aligned and match in names and shapes
         sd_keys_hf = sd_hf.keys()
         sd_keys_hf = [k for k in sd_keys_hf if not k in ['.attn.masked_bias', 'attn.bias']]
+
+        for k in sd.keys():
+            print(k)
         
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
@@ -160,6 +172,7 @@ class GPT(nn.Module):
         assert len(sd_keys_hf) == len(sd_keys), f"mismatched keys: {len(sd_keys_hf)} != {len(sd_keys)}"
         for k in sd_keys_hf:
             if any(k.endswith(w) for w in transposed):
+
                 # special treatment for the Conv1D weights we need to transpose
                 assert sd_hf[k].shape[::-1] == sd[k].shape
                 with torch.no_grad():
