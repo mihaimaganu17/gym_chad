@@ -31,26 +31,40 @@ def cart_pole_env(seed=None):
     # keeps track of the reward across episodes
     total_rewards = []
 
-    agent = CartPoleAgent(env)
-
     episode_durations = []
 
     def plot_durations(show_result=False):
         plt.figure(1)
+        # Convert durations to a tensor
         durations_t = torch.tensor(episode_durations, dtype=torch.float)
+
         if show_result:
-            plt.title('Result')
+            plt.title("Result")
         else:
+            # Clear the current figure
             plt.clf()
-            plt.title('Training...')
+            plt.title("Training...")
+
         plt.xlabel('Episode')
         plt.ylabel('Duration')
+
         plt.plot(durations_t.numpy())
+
         # Take 100 episode averages and plot them too
         if len(durations_t) >= 100:
+            # Create slices of 100 elements with a sliding window of 1, resulting in a 2-dimnesional
+            # array, compute their mean and flatten the result in a 1d array
+            # First slice: idx[0]...idx[99]
+            # Second slice: idx[1]...idx[100]
+            # Last slice: idx[len(durations)-100]...idx[len(durations)-1]
             means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
+            # Prepend the means with zeros such that the plot will start at zero and not at the
+            # first value in the means
             means = torch.cat((torch.zeros(99), means))
             plt.plot(means.numpy())
+
+
+    agent = CartPoleAgent(env)
     
     total_steps = 0
     # Each episode
@@ -59,9 +73,12 @@ def cart_pole_env(seed=None):
         done = False
         steps = 0
 
+        # Initialize the total reward for this episode for tracking
         episode_reward = 0
         # Reset the environment
         obs, _info = env.reset()
+        # Transform the state into a 2-dimensional tensor with one row and 4 columns (4 values in
+        # the state) 
         state = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
 
         # While the episode is running
@@ -69,7 +86,7 @@ def cart_pole_env(seed=None):
             # Sample an action
             action = agent.get_action(state)
 
-            # Take that action on the environment
+            # Take that action in the environment
             obs, reward, terminated, truncated, info = env.step(action.item())
             # Update the total reward for this episode
             episode_reward += reward
@@ -105,10 +122,6 @@ def cart_pole_env(seed=None):
 
         episode_durations.append(steps)
         plot_durations()
-
-        if episode_idx / 10 == 0 and len(agent.losses) > 0:
-            loss = agent.losses[-1]
-            print(f"Episode {episode_idx} loss: {loss:.5f}")
 
         total_rewards.append(episode_reward)
     

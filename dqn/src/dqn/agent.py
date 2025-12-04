@@ -139,8 +139,8 @@ class CartPoleAgent:
         next_state_values = torch.zeros(self.batch_size)
 
         # Compute a mask of non final next states, which mark if transitions have the next_state
-        # `None` or not. These are used to index the next_state values above in order to populate
-        # them.
+        # `None` or not. These are used to index only the next_state values which are not final
+        # in order to populate them with results from the target network.
         non_final_states_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool)
         
         # Make sure we don't compute gradients when using the target net
