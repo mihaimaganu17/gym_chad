@@ -15,8 +15,9 @@ class MultiHeadAttention(nn.Module):
             :param n_embd: The embedding size used for each of the self-attention heads
             :param block_size: Context length for each of the self-attention heads
         """
+        super().__init__()
         self.num_heads = num_heads
-        self.heads = nn.ModuleList([Head(head_size, n_embd, block_size) for _ in num_heads])
+        self.heads = nn.ModuleList([Head(head_size, n_embd, block_size) for _ in range(num_heads)])
 
 
     def forward(self, x):
