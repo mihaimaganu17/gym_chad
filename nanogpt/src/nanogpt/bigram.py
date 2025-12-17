@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from nanogpt.head import Head
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size, n_embd, block_size):
         super().__init__()
@@ -16,6 +18,8 @@ class BigramLanguageModel(nn.Module):
         # We are also embedding the position of the token for each token in
         # the context length
         self.position_embedding_table = nn.Embedding(self.block_size, n_embd)
+        # Create the self-attention head
+        self.sa_head = Head(n_embd, n_embd, block_size)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
 
@@ -30,6 +34,7 @@ class BigramLanguageModel(nn.Module):
         # along for each element (context sequence) in the batch
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
+        x = self.sa_head(x) # Apply one channel of self attention (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets == None:
