@@ -3,7 +3,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from nanogpt.head import Head
+from nanogpt.head import MultiHeadAttention
 
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size, n_embd, block_size):
@@ -18,8 +18,14 @@ class BigramLanguageModel(nn.Module):
         # We are also embedding the position of the token for each token in
         # the context length
         self.position_embedding_table = nn.Embedding(self.block_size, n_embd)
-        # Create the self-attention head
-        self.sa_head = Head(n_embd, n_embd, block_size)
+        
+        # Number of self-attention heads
+        num_heads = 4
+        # Self-attention heads are used to divide the embedding space equally. As such we must
+        # verify that the head_size is a valid integer
+        assert n_embd % num_heads == 0
+        # Create the 4 self-attention heads each of size 8
+        self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
 
