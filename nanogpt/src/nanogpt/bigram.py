@@ -24,6 +24,14 @@ class Block(nn.Module):
     def __init__(self, num_heads, n_embd, block_size):
         """A block pair communication given by multi-headed self-attention with computation over that
         communication given by the feedforward network
+
+        Parameters:
+            :param num_heads: Number of self-attention heads we want in the MultiHeadAttention block
+            This parameter is also used to compute the size of the self-attention head together with
+            the next parameter, where the size of the attention block will be given by
+            num_heads // n_embd
+            :param n_embd: Size of the embedding space for a single token
+            :param block_size: Context length
         """
         super().__init__()
         # Self-attention heads are used to divide the embedding space equally. As such we must
@@ -59,13 +67,11 @@ class BigramLanguageModel(nn.Module):
         
         # Number of self-attention heads
         num_heads = 4
-        # Self-attention heads are used to divide the embedding space equally. As such we must
-        # verify that the head_size is a valid integer
-        assert n_embd % num_heads == 0
-        # Create the 4 self-attention heads each of size 8
-        self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
-        # After gathering all that data, each token thinks about that data individually
-        self.ffwd = FeedForward(n_embd)
+        self.blocks = nn.Sequential(
+            Block(num_heads, n_embd, block_size),
+            Block(num_heads, n_embd, block_size),
+            Block(num_heads, n_embd, block_size)
+        )
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
 
@@ -80,8 +86,7 @@ class BigramLanguageModel(nn.Module):
         # along for each element (context sequence) in the batch
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
-        x = self.sa_head(x) # Apply one channel of self attention (B, T, C)
-        x = self.ffwd(x) # (B, T, C)
+        x = self.blocks(x) # (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets == None:
