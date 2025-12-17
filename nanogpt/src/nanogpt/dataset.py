@@ -16,6 +16,8 @@ class Dataset:
 
         self._build_vocab()
         self._build_encode_decode()
+
+        self.data = torch.tensor(self.encode(self.text), dtype=torch.long)
         self._split_dataset()
 
         # Context max length
@@ -37,9 +39,9 @@ class Dataset:
 
     def _split_dataset(self):
         # Split into train and validation
-        n = int(0.9 * len(self.text)) # 90% train set and 10% validation
-        self.train_set = self.text[:n]
-        self.val_set = self.text[n:]
+        n = int(0.9 * len(self.data)) # 90% train set and 10% validation
+        self.train_set = self.data[:n]
+        self.val_set = self.data[n:]
         del self.text
 
 

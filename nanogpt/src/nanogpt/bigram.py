@@ -1,0 +1,65 @@
+# Setting a benchmark -> Token embedding table
+import torch
+from torch import nn
+from torch.nn import functional as F
+
+class BigramLanguageModel(nn.Module):
+    def __init__(self, vocab_size, n_embd, block_size):
+        super().__init__()
+        self.vocab_size = vocab_size
+        # Number of embeddings for each element in vocab
+        self.n_embd = n_embd
+        # Context length size
+        self.block_size = block_size
+        # We are embedding the token and an individual identity token information
+        self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
+        # We are also embedding the position of the token for each token in
+        # the context length
+        self.position_embedding_table = nn.Embedding(self.block_size, n_embd)
+        self.lm_head = nn.Linear(n_embd, vocab_size)
+        
+
+    def forward(self, idxs, targets=None):
+        # `idxs` and `targets` are both (B, T) tensors of integers
+        B, T = idxs.shape
+        
+        tok_emb = self.token_embedding_table(idxs) # (B, T, C) -> C = n_embd
+        # Get the position embedding for all the tokens in the the context length
+        # aka for all the timesteps from 0 to T
+        # position embedding does not have a batch size because it is broadcasted
+        # along for each element (context sequence) in the batch
+        pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
+        x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
+        logits = self.lm_head(x) # (B, T, vocab_size)
+
+        if targets == None:
+            loss = None
+        else:
+            B, T, C = logits.shape
+            # Torch expects that the C (channels/features) dimension is the second dimension
+            logits = logits.view(B*T, C)
+            targets = targets.view(B*T)
+            loss = F.cross_entropy(logits, targets)
+            
+        return logits, loss
+
+
+    def generate(self, idxs, max_new_tokens):
+        """Samples `max_new_tokens` next tokens from the model starting with `idxs`
+        """
+        for _ in range(max_new_tokens):
+            # Crop idx to the las block_size tokens
+            idxs = idxs[:, -block_size:]
+            # Compute the forward pass
+            # Get embeddings. Because we don't have any targets, this only returns the logits
+            # and no loss
+            logits, _loss = self(idxs)
+            # Focus only on the last time step. This becomes the (B, C) of the last T
+            logits = logits[:, -1, :]
+            # Softmax along the C (channels) which are the last dimension
+            probs = F.softmax(logits, dim = -1) # (B, C)
+            # Sample from the distribution
+            pred_idx = torch.multinomial(probs, num_samples = 1) # (B, 1)
+            idxs = torch.cat([idxs, pred_idx], dim=1)
+
+        return idxs
