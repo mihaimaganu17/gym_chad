@@ -5,6 +5,21 @@ from torch.nn import functional as F
 
 from nanogpt.head import MultiHeadAttention
 
+class FeedForward(nn.Module):
+    def __init__(self, n_embd):
+        """Small feedforward network with a linear layer and an activation function"""
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(n_embd,n_embd),
+            nn.ReLU()
+        )
+
+
+    def forward(self, x_in):
+        out = self.net(x_in)
+        return out
+
+
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size, n_embd, block_size):
         super().__init__()
@@ -26,6 +41,8 @@ class BigramLanguageModel(nn.Module):
         assert n_embd % num_heads == 0
         # Create the 4 self-attention heads each of size 8
         self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
+        # After gathering all that data, each token thinks about that data individually
+        self.ffwd = FeedForward(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
 
@@ -41,6 +58,7 @@ class BigramLanguageModel(nn.Module):
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
         x = self.sa_head(x) # Apply one channel of self attention (B, T, C)
+        x = self.ffwd(x) # (B, T, C)
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets == None:
