@@ -3,6 +3,27 @@ from torch.nn import functional as F
 
 import torch
 
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads, head_size, n_embd, block_size):
+        """The `MultiHeadAttention` is used to split the embedding space into `num_heads` count of
+        self-attention heads `Head`, each with a `head_size`. Concatenating all of them together
+        gives us back the size of the embedding space
+
+        Parameters:
+            :param num_heads: Number of self-attention heads in this layer
+            :param head_size: Size of each of the self-attention head
+            :param n_embd: The embedding size used for each of the self-attention heads
+            :param block_size: Context length for each of the self-attention heads
+        """
+        self.num_heads = num_heads
+        self.heads = nn.ModuleList([Head(head_size, n_embd, block_size) for _ in num_heads])
+
+
+    def forward(self, x):
+        # Concatenate all the heads across the last dimension
+        out = torch.cat([head(x) for head in self.heads], dim=-1)
+        return out
+
 
 class Head(nn.Module):
     def __init__(self, head_size, n_embd, block_size):
