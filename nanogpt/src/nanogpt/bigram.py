@@ -49,11 +49,11 @@ class BigramLanguageModel(nn.Module):
         """
         for _ in range(max_new_tokens):
             # Crop idx to the las block_size tokens
-            idxs = idxs[:, -block_size:]
+            in_idxs = idxs[:, -self.block_size:]
             # Compute the forward pass
             # Get embeddings. Because we don't have any targets, this only returns the logits
             # and no loss
-            logits, _loss = self(idxs)
+            logits, _loss = self(in_idxs)
             # Focus only on the last time step. This becomes the (B, C) of the last T
             logits = logits[:, -1, :]
             # Softmax along the C (channels) which are the last dimension
