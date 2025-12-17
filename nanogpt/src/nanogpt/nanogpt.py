@@ -3,6 +3,8 @@ from nanogpt.bigram import BigramLanguageModel
 
 import torch
 
+torch.manual_seed(1337)
+
 
 @torch.no_grad()
 def eval_loss(model, dataset, num_iters = 200):
@@ -34,23 +36,28 @@ def eval_loss(model, dataset, num_iters = 200):
 
 def gpt():
     dataset_path = "../micrograd3/tiny_shakespeare.txt"
+
+    # Model's hyperparameters
     block_size = 8
-    batch_size = 4
-    n_embd = 4
+    batch_size = 32
+    n_embd = 32
+    max_iters = 5000
+    eval_interval = 500
+    lr = 1e-3
+    num_iters = 200
+
+
     d = Dataset(dataset_path, block_size, batch_size)
 
     model = BigramLanguageModel(d.vocab_size, n_embd, block_size)
     Xb, Yb = d.get_split_batch('train')
     logits, loss = model(Xb, Yb)
 
-    print(logits.shape)
-    print(Yb.shape)
-
-    optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
     # Training
     batch_size = 32
-    for _ in range(10000):
+    for idx in range(max_iters):
         # Get a new batch
         Xb, Yb = d.get_split_batch('train')
         logits, loss = model(Xb, Yb)
@@ -60,8 +67,10 @@ def gpt():
         # Perform the optimisation
         optimizer.step()
 
-    print(loss.item())
-    num_iters = 200
+        if idx % eval_interval == 0:
+            loss_eval = eval_loss(model, d, num_iters=num_iters)
+            print(f"Evaluating loss over {num_iters} batches of train and evaluations -> {loss_eval}")
+
     loss_eval = eval_loss(model, d, num_iters=num_iters)
     print(f"Evaluating loss over {num_iters} batches of train and evaluations -> {loss_eval}")
     
