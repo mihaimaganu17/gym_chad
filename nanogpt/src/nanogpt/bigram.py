@@ -18,6 +18,29 @@ class FeedForward(nn.Module):
     def forward(self, x_in):
         out = self.net(x_in)
         return out
+    
+
+class Block(nn.Module):
+    def __init__(self, num_heads, n_embd, block_size):
+        """A block pair communication given by multi-headed self-attention with computation over that
+        communication given by the feedforward network
+        """
+        super().__init__()
+        # Self-attention heads are used to divide the embedding space equally. As such we must
+        # verify that the head_size is a valid integer
+        assert n_embd % num_heads == 0 
+        # Create the multi-head self-attention layer. This handles the communication part between
+        # the tokens
+        self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
+        # After gathering all that data, each token thinks about that data individually. This
+        # handles the computational part
+        self.ffwd = FeedForward(n_embd)
+
+
+    def forward(self, x_in):
+        x = self.sa_head(x_in)
+        out = self.ffwd(x)
+        return out
 
 
 class BigramLanguageModel(nn.Module):
