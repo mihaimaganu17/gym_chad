@@ -78,7 +78,10 @@ class BigramLanguageModel(nn.Module):
         self.blocks = nn.Sequential(
             Block(num_heads, n_embd, block_size),
             Block(num_heads, n_embd, block_size),
-            Block(num_heads, n_embd, block_size)
+            Block(num_heads, n_embd, block_size),
+            # Pre normalisation layer for the last linear layer to make the features unit gaussian
+            # (0 mean, 1 std)
+            nn.LayerNorm(n_embd),
         )
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
