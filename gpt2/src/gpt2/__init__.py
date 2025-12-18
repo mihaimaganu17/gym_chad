@@ -4,8 +4,10 @@ def hello() -> str:
     gpt2_showcase()
     model = GPT.from_pretrained('gpt2')
     print("didn't crash")
-    for example in gpt2_sample():
-        print(example)
+    
+    # Sampling from the HF GPT2
+    #for example in gpt2_sample():
+    #    print(example)
     return "Hello from gpt2!"
 
 

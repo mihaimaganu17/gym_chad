@@ -29,10 +29,11 @@ class GPTConfig:
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: GPTConfig):
         super().__init__()
+        # Configuration containing hyperparameters for the model
         self.config = config
-        # We are having the attenting splitting the embedding into multiple parallel heads, so we
-        # have to make sure the parameters align and the number of embedding is an integer multiplier
-        # for the number of heads.
+        # We are having the multi-head self-attention splitting the embedding space into multiple 
+        # and equal parallel heads, so we have to make sure the parameters align and the number of
+        # embeddings is an integer multiplier for the number of attention heads.
         assert self.config.n_embd % self.config.n_head == 0
 
         # Attention is made up of keys, queries and values (projections) for all heads, which sum
@@ -40,7 +41,7 @@ class CausalSelfAttention(nn.Module):
         self.c_attn = nn.Linear(self.config.n_embd, 3 * self.config.n_embd)
         # output proojection
         self.c_proj = nn.Linear(self.config.n_embd, self.config.n_embd)
-        # regularization
+        # regularization parameters
         self.n_head = self.config.n_head
         self.n_embd = self.config.n_embd
         
@@ -54,18 +55,27 @@ class CausalSelfAttention(nn.Module):
 
         qkv = self.c_attn(x)
         # Get query, key, values, splitting along the last dimension (3 * n_embd)
+        # They were processed as a contacatenated tensor for better performance
         q, k, v = qkv.split(self.n_embd, dim=2)
+        # Last layer of each q, k, v is n_embd which gets splitted to be parallelised between the
+        # number of heads
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
         # attention matrix for all the queries and keys
+        # We transpose to have (B, nb, T, hs) @ (B, nb, hs, T) -> (B, nb, T, T)
+        # We also scale the attention with 1/sqrt(last key dimension) to make it unit gaussian
+        # 0 mean, 1 std
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        # Auto regressive mask, prevent referencing future tokens
+        # Auto regressive mask, prevents referencing future tokens (The tril along the T channels)
         att = att.masked_fill(self.bias[:,:,:T,:T]==0, float('-inf'))
-        # Normalize the attention
+        # Normalize the attention. This softmax makes the `-inf` elements got to 0
         att = F.softmax(att, dim=1)
+        # Get the weighted activations (B, nb, T, T) @ (B, nb, T, hs) -> (B, nb, T, hs)
+        # Weighted sum of the values that we found interesting
         y = att @ v
-        y = y.transpose(1, 2).contiguous().view(B, T, C)
+        # (B, nb, T, hs) -> (B, T, nb, hs) -> (B, T, C) where C is n_embd
+        y = y.transpose(1, 2).contiguous().view(B, T, C) 
         # output projection
         y = self.c_proj(y)
         return y
@@ -77,7 +87,7 @@ class MLP(nn.Module):
         self.config = config
         self.c_fc = nn.Linear(self.config.n_embd, 4 * self.config.n_embd)
         # Like ReLU, but smoother and without the dead neurons
-        self.gelu = nn.GELU(approximate='tahn')
+        self.gelu = nn.GELU(approximate='tanh')
         self.c_proj = nn.Linear(4 * self.config.n_embd, self.config.n_embd)
 
 
@@ -158,21 +168,24 @@ class GPT(nn.Module):
         config = GPTConfig(**config_args)
         model = GPT(config)
 
-        # Create the state dict for our model and the hf model
+        # Create the state dict for our model
         sd = model.state_dict()
         sd_keys = sd.keys()
-        # Discard this mask buffer bias, which is used for the autoregressive mask
+        # Discard this mask buffer bias, which is used for the autoregressive mask. The tril that
+        # is used to ignore future tokens
         sd_keys = [k for k in sd_keys if not k.endswith('.attn.bias')]
 
+        # Create the model and the state dict for the HF GPT2
         model_hf = GPT2LMHeadModel.from_pretrained(model_type)
         sd_hf = model_hf.state_dict()
 
         # copy while ensuring all of the parameters are aligned and match in names and shapes
         sd_keys_hf = sd_hf.keys()
-        sd_keys_hf = [k for k in sd_keys_hf if not k in ['.attn.masked_bias', 'attn.bias']]
+        sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.masked_bias')]
+        sd_keys_hf = [k for k in sd_keys_hf if not k.endswith('.attn.bias')]
 
-        #for k in sd.keys():
-            #print(k)
+        for k in sd.keys():
+            print(k)
         
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
