@@ -47,10 +47,20 @@ def hello() -> str:
         topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
         # Select a token from the top-k probs
         ix = torch.multinomial(topk_probs, 1) # (B, 1)
-        # gather the corresponding indices
+
+        # gather the corresponding indices of that token
         xcol = torch.gather(topk_indices, -1, ix)
-        # append to the sequence the values and their indexes
+        print(ix)
+        print(xcol)
+        # append to the sequence the token indeces
         x = torch.cat((x, xcol), dim=1)
+        break
+
+    # Print the generated text
+    for i in range(num_return_sequences):
+        tokens = x[i, :max_new_tokens].tolist()
+        decoded = enc.decode(tokens)
+        print(">", decoded)
 
     
     # Sampling from the HF GPT2

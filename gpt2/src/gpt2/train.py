@@ -154,7 +154,7 @@ class GPT(nn.Module):
 
     def forward(self, idx):
         # idx if of shape (B, T) where T is the timestep dimesion (number of tokens)
-        B, T = idx.shape()
+        B, T = idx.shape
         # T cannot be bigger than the block size because the blocksize is the max sequence length
         assert T <= self.config.block_size, f"Time dimension T={T} is bigger than maximum context \
             length {self.config.block_size}"
