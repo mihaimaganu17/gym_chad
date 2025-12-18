@@ -38,20 +38,29 @@ def gpt():
     dataset_path = "../micrograd3/tiny_shakespeare.txt"
 
     # Model's hyperparameters
-    block_size = 8
-    batch_size = 32
-    n_embd = 32
+
+    # Maximum tokens in the context length (also used in training as number of previous tokens to
+    # predict the next one)
+    block_size = 256
+    # How many batches we are forwarding at a time
+    batch_size = 64
+    n_embd = 384
     max_iters = 5000
     eval_interval = 500
-    lr = 1e-3
+    # Learning rate
+    lr = 3e-4
+    # Number of iterations
     num_iters = 200
-    n_blocks = 3
+    # How many multi-head self-attention blocks we have
+    n_blocks = 6
+    # Number of self-attention heads in each block
+    num_heads = 6
     dropout = 0.2
 
 
     d = Dataset(dataset_path, block_size, batch_size)
 
-    model = BigramLanguageModel(d.vocab_size, n_embd, block_size, n_blocks, dropout)
+    model = BigramLanguageModel(d.vocab_size, n_embd, block_size, n_blocks, num_heads, dropout)
     Xb, Yb = d.get_split_batch('train')
     logits, loss = model(Xb, Yb)
 
