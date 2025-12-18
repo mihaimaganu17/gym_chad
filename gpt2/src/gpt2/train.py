@@ -152,6 +152,31 @@ class GPT(nn.Module):
         self.lm_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
 
+    def forward(self, idx):
+        # idx if of shape (B, T) where T is the timestep dimesion (number of tokens)
+        B, T = idx.shape()
+        # T cannot be bigger than the block size because the blocksize is the max sequence length
+        assert T <= self.config.block_size, f"Time dimension T={T} is bigger than maximum context \
+            length {self.config.block_size}"
+
+        # Create a tensor of positions from 0 up to poistion at timestep T
+        pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
+        # Forward token and position embeddings
+        pos_emb = self.transformer.wpe(pos) # We get position embeddings (T, n_embd)
+        tok_emb = self.transformer.wte(idx) # We get token embeddings (B, T, n_embd)
+        # Position embeddings gets copied and broadcasted along the first dimension of token
+        # embeddings
+        x = tok_emb + pos_emb
+        # Forward through the blocks
+        for block in self.transformer.h:
+            x = block(x)
+        # Forward the final layer normalisation (B, T, n_embd)
+        x = self.transformer.ln_f(x)
+        # (B, T, vocab_size)
+        logits = self.lm_head(x)
+        return logits
+
+
     @classmethod 
     def from_pretrained(cls, model_type):
         """Loads pretrained GPT-2 model weights from hf"""
