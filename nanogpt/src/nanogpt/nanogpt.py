@@ -61,7 +61,6 @@ def gpt():
     num_heads = 6
     dropout = 0.2
 
-
     d = Dataset(dataset_path, block_size, batch_size)
 
     model = BigramLanguageModel(d.vocab_size, n_embd, block_size, n_blocks, num_heads, dropout, device)

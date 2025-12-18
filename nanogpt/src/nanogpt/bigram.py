@@ -72,6 +72,7 @@ class BigramLanguageModel(nn.Module):
             :param n_embd: Number of embeddings for each individual token
             :param block_size: Context length size
             :param n_blocks: Number of decoder multi-head self-attention blocks
+
             :param num_heads: How many self-attention heads does each block have
             :param dropout: Specifies the portion of neurons to be dropped out when going back into
             the residual paths
