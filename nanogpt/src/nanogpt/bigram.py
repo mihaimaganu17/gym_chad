@@ -64,7 +64,7 @@ class Block(nn.Module):
 
 
 class BigramLanguageModel(nn.Module):
-    def __init__(self, vocab_size, n_embd, block_size, n_blocks, num_heads, dropout):
+    def __init__(self, vocab_size, n_embd, block_size, n_blocks, num_heads, dropout, device):
         """
         Parameters:
             :param vocab_size: Size of vocabulary, in our case the number of unique individual tokens
@@ -94,6 +94,7 @@ class BigramLanguageModel(nn.Module):
         # (0 mean, 1 std)
         self.lm_head_ln_norm = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
+        self.device = device
         
 
     def forward(self, idxs, targets=None):
@@ -106,7 +107,7 @@ class BigramLanguageModel(nn.Module):
         # aka for all the timesteps from 0 to T
         # position embedding does not have a batch size because it is broadcasted
         # along for each element (in the context sequence) in the batch
-        pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
+        pos_emb = self.position_embedding_table(torch.arange(T, device=self.device)) # (T, C)
         x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
         x = self.blocks(x) # (B, T, C)
         # Pre normalise the feature going into the last linear layer

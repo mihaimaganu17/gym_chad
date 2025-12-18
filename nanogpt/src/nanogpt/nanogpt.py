@@ -6,7 +6,7 @@ import torch
 torch.manual_seed(1337)
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-if device == 'cpu':
+if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
 print(device)
@@ -26,7 +26,7 @@ def eval_loss(model, dataset, num_iters = 200):
         losses = torch.zeros(num_iters)
         for idx in range(num_iters):
             # Get the batch
-            Xb, Yb = dataset.get_split_batch(split)
+            Xb, Yb = dataset.get_split_batch(split, device=device)
             # Do the forward pass
             logits, loss = model(Xb, Yb)
             # Save the loss for this batch
@@ -48,7 +48,7 @@ def gpt():
     block_size = 256
     # How many batches we are forwarding at a time
     batch_size = 64
-    n_embd = 384
+    n_embd = 64
     max_iters = 5000
     eval_interval = 500
     # Learning rate
@@ -64,8 +64,9 @@ def gpt():
 
     d = Dataset(dataset_path, block_size, batch_size)
 
-    model = BigramLanguageModel(d.vocab_size, n_embd, block_size, n_blocks, num_heads, dropout)
-    Xb, Yb = d.get_split_batch('train')
+    model = BigramLanguageModel(d.vocab_size, n_embd, block_size, n_blocks, num_heads, dropout, device)
+    model.to(device)
+    Xb, Yb = d.get_split_batch('train', device=device)
     logits, loss = model(Xb, Yb)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
@@ -74,7 +75,7 @@ def gpt():
     batch_size = 32
     for idx in range(max_iters):
         # Get a new batch
-        Xb, Yb = d.get_split_batch('train')
+        Xb, Yb = d.get_split_batch('train', device=device)
         # Forward pass
         logits, loss = model(Xb, Yb)
         # Zero out the gradient such that it does not accumulate between sessions
@@ -92,4 +93,4 @@ def gpt():
     print(f"Evaluating loss over {num_iters} batches of train and evaluations -> {loss_eval}")
     
     # Sample from the model
-    print(d.decode(model.generate(idxs=torch.zeros((1,1), dtype=torch.long), max_new_tokens=500)[0].tolist()))
+    print(d.decode(model.generate(idxs=torch.zeros((1,1), dtype=torch.long, device=device), max_new_tokens=500)[0].tolist()))

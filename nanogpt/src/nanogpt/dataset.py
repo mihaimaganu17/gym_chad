@@ -46,7 +46,7 @@ class Dataset:
         del self.text
 
 
-    def get_split_batch(self, split: str):
+    def get_split_batch(self, split: str, device):
         """Sample a `batch_size` number of sequences of length `block_size` along with their
         next character prediction from the desired `split` -> `train` or `val` data"""
 
@@ -63,4 +63,6 @@ class Dataset:
         x = torch.stack([dataset[idx:idx+self.block_size] for idx in idxs])
         # And the predictions will be the exact next character following that sequence
         y = torch.stack([dataset[idx+1:idx+self.block_size+1] for idx in idxs])
+        x = x.to(device)
+        y = y.to(device)
         return (x, y)
