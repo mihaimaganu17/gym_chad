@@ -18,9 +18,9 @@ class GPTConfig:
     block_size: int = 1024
     # Size of vocabulary (in our case, only letters (upper, lower) and numbers)
     vocab_size: int = 50257
-    # Number of hidden layers (each hidden layer is actually a block). Original GPT 2 has 12
+    # Number of hidden layers (each hidden layer is actually a multiheade self-attention block).
     n_h_layer: int = 12
-    # Number of attention heads???
+    # Number self-attention heads in each self-attention block
     n_head: int = 12
     # Size of the embeddings of each token. Original has 768.
     n_embd: int = 768
@@ -91,10 +91,15 @@ class Block(nn.Module):
     """Self-attention block as described in the GPT2 paper"""
     def __init__(self, config):
         super().__init__()
+        # Configuration containing hyperparameters
         self.config = config
+        # Layer normalisation before the self-attention communication
         self.ln_1 = nn.LayerNorm(self.config.n_embd)
+        # Self-Attention, the communication function
         self.attn = CausalSelfAttention(config)
+        # Layer normalisation before the feed-forward net
         self.ln_2 = nn.LayerNorm(self.config.n_embd)
+        # The feed-forward, computation function, mapping the tokens
         self.mlp = MLP(config)
 
 
@@ -115,11 +120,10 @@ class Block(nn.Module):
         return x
 
 
-
-
 class GPT(nn.Module):
     def __init__(self, config: GPTConfig):
         super().__init__()
+        # Confiugration containing hyperparameters for the model
         self.config = config
 
         # Main container is a transformer. We use `ModuleDict` because it allows us to index modules
@@ -129,9 +133,9 @@ class GPT(nn.Module):
             wte = nn.Embedding(self.config.vocab_size, self.config.n_embd),
             # Weights of the position embeddings
             wpe = nn.Embedding(self.config.block_size, self.config.n_embd),
-            # Weights of the hidden layers (which are actually hidden blocks with multiple layers)
+            # Weights of the hidden layers (which are actually hidden multihead self-attention blocks
             h = nn.ModuleList([Block(config) for _ in range(self.config.n_h_layer)]),
-            # TODO
+            # The final layer normalization before the last linear layer outputing the logits.
             ln_f = nn.LayerNorm(self.config.n_embd),
         ))
         # Final classifier that converts the embeddings into probability for indexes of tokens
