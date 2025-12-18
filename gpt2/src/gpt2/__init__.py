@@ -4,6 +4,8 @@ def hello() -> str:
     gpt2_showcase()
     model = GPT.from_pretrained('gpt2')
     print("didn't crash")
+    for example in gpt2_sample():
+        print(example)
     return "Hello from gpt2!"
 
 
@@ -16,3 +18,11 @@ def gpt2_showcase():
 
     for k, v in gpt2_state_dict.items():
         print(k, v.shape)
+
+
+def gpt2_sample():
+    from transformers import pipeline, set_seed
+    generator = pipeline('text-generation', model='gpt2')
+    set_seed(1337)
+    examples = generator("Hello, I'm a langauge model", max_new_tokens=30, num_return_sequences=5)
+    return examples

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 
 import torch
+import math
 
 # Modellign GPT2 in the huggingface transformers library
 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
@@ -124,7 +125,7 @@ class GPT(nn.Module):
         # Main container is a transformer. We use `ModuleDict` because it allows us to index modules
         # inside using a dict
         self.transformer = nn.ModuleDict(dict(
-            # Weights of the tokens' embeddings 
+            # Weights of the tokens' embeddings
             wte = nn.Embedding(self.config.vocab_size, self.config.n_embd),
             # Weights of the position embeddings
             wpe = nn.Embedding(self.config.block_size, self.config.n_embd),
@@ -166,8 +167,8 @@ class GPT(nn.Module):
         sd_keys_hf = sd_hf.keys()
         sd_keys_hf = [k for k in sd_keys_hf if not k in ['.attn.masked_bias', 'attn.bias']]
 
-        for k in sd.keys():
-            print(k)
+        #for k in sd.keys():
+            #print(k)
         
         transposed = ['attn.c_attn.weight', 'attn.c_proj.weight', 'mlp.c_fc.weight', 'mlp.c_proj.weight']
         # basically the openai checkpoints use a "Conv1D" module, but we only want to use a vanilla Linear
