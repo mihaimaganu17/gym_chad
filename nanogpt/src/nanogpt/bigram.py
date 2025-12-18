@@ -22,7 +22,7 @@ class FeedForward(nn.Module):
 
 class Block(nn.Module):
     def __init__(self, num_heads, n_embd, block_size):
-        """A block pair communication given by multi-headed self-attention with computation over that
+        """A block pair communication given by multi-headed self-attention with computation over the
         communication given by the feedforward network
 
         Parameters:
@@ -34,8 +34,8 @@ class Block(nn.Module):
             :param block_size: Context length
         """
         super().__init__()
-        # Self-attention heads are used to divide the embedding space equally. As such we must
-        # verify that the head_size is a valid integer
+        # Multiple self-attention heads are used to divide the embedding space equally. As such we
+        # must verify that the head_size of each of those heads is equal and a valid integer
         assert n_embd % num_heads == 0 
         # Create the multi-head self-attention layer. This handles the communication part between
         # the tokens
@@ -59,7 +59,7 @@ class BigramLanguageModel(nn.Module):
         self.n_embd = n_embd
         # Context length size
         self.block_size = block_size
-        # We are embedding the token and an individual identity token information
+        # We are embedding the token for the individual identity token information
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         # We are also embedding the position of the token for each token in
         # the context length
@@ -79,14 +79,16 @@ class BigramLanguageModel(nn.Module):
         # `idxs` and `targets` are both (B, T) tensors of integers
         B, T = idxs.shape
         
+        # Extract token identity embeddings
         tok_emb = self.token_embedding_table(idxs) # (B, T, C) -> C = n_embd
         # Get the position embedding for all the tokens in the the context length
         # aka for all the timesteps from 0 to T
         # position embedding does not have a batch size because it is broadcasted
-        # along for each element (context sequence) in the batch
+        # along for each element (in the context sequence) in the batch
         pos_emb = self.position_embedding_table(torch.arange(T)) # (T, C)
         x = tok_emb + pos_emb # with torch broadcasting we will have (B, T, C)
         x = self.blocks(x) # (B, T, C)
+        # Probabilities for the next token
         logits = self.lm_head(x) # (B, T, vocab_size)
 
         if targets == None:
@@ -105,7 +107,7 @@ class BigramLanguageModel(nn.Module):
         """Samples `max_new_tokens` next tokens from the model starting with `idxs`
         """
         for _ in range(max_new_tokens):
-            # Crop idx to the las block_size tokens
+            # Crop idx to the last block_size tokens
             in_idxs = idxs[:, -self.block_size:]
             # Compute the forward pass
             # Get embeddings. Because we don't have any targets, this only returns the logits

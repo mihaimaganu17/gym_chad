@@ -37,6 +37,7 @@ class Dataset:
         self.encode = lambda text: [self.ctoi[ch] for ch in text]
         self.decode = lambda idxs: ''.join([self.itoc[idx] for idx in idxs])
 
+
     def _split_dataset(self):
         # Split into train and validation
         n = int(0.9 * len(self.data)) # 90% train set and 10% validation

@@ -34,8 +34,11 @@ class Head(nn.Module):
         self.n_embd = n_embd
         self.block_size = block_size
 
+        # What do I contain
         self.key = nn.Linear(self.n_embd, self.head_size, bias = False)
+        # What am I looking for
         self.query = nn.Linear(self.n_embd, self.head_size, bias = False)
+        # What am I represented by
         self.value = nn.Linear(self.n_embd, self.head_size, bias = False)
 
         # Not a parameter of the model
@@ -43,20 +46,31 @@ class Head(nn.Module):
 
     
     def forward(self, x):
-        # C should be n_embd and T is block_size
+        # C should be n_embd and T is the size of the context length
+        # T cannot be bigger than block_size
         B,T,C = x.shape
+        # The tril matrix we are using to distribute equal probabilities is of size block_size
+        # As such a context length bigger than block size would not be able to fit in the Head
+        assert T <= self.block_size
 
         k = self.key(x) # (B, T, C) @ (C, head_size) -> (B, T, head_size)
         q = self.query(x) # (B, T, C) @ (C, head_size) -> (B, T, head_size)
-        weights = q @ k.transpose(-2, -1) # (B, T, 16) @ (B, 16, T) --> (B, T, T)
+
+        # Multiply the queries of each token with the keys of the other token
+        weights = q @ k.transpose(-2, -1) # (B, T, C) @ (B, C, T) --> (B, T, T)
         temp_tril = self.tril[:T, :T]
         # Avoid softmax pulling towards the highest value and keep the variance close to one
-        weights = weights * C**-0.5
+        weights = weights * self.block_size ** -0.5
 
+        # Mask (with -inf) all the future tokens such that we only predict based on past ones and
+        # the current one
         weights = weights.masked_fill(temp_tril == 0, float('-inf'))
+        # Normalize distributions
         weights = F.softmax(weights, dim = -1)
 
         v = self.value(x)
+        # Extract the actual value of the tokens now that they accumulated information from the
+        # previous tokens
         out = weights @ v
         return out
 
