@@ -39,17 +39,23 @@ class Block(nn.Module):
         # Multiple self-attention heads are used to divide the embedding space equally. As such we
         # must verify that the head_size of each of those heads is equal and a valid integer
         assert n_embd % num_heads == 0 
+        # Pre layer normalisation for the multi-head, self_attention module to make features
+        # unit gaussian (0 mean, 1 std)
+        self.sa_ln = nn.LayerNorm(n_embd)
         # Create the multi-head self-attention layer. This handles the communication part between
         # the tokens
         self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
+        # Pre layer normalisation for the layer normalisation to make features unit gaussian
+        # (0 mean, 1 std)
+        self.ffwd_ln = nn.LayerNorm(n_embd)
         # After gathering all that data, each token thinks about that data individually. This
         # handles the computational part
         self.ffwd = FeedForward(n_embd)
 
 
     def forward(self, x_in):
-        x_in = x_in + self.sa_head(x_in)
-        out = x_in + self.ffwd(x_in)
+        x_in = x_in + self.sa_head(self.sa_ln(x_in))
+        out = x_in + self.ffwd(self.ffwd_ln(x_in))
         return out
 
 
