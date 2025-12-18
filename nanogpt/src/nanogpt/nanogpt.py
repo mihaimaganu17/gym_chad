@@ -45,11 +45,12 @@ def gpt():
     eval_interval = 500
     lr = 1e-3
     num_iters = 200
+    dropout = 0.2
 
 
     d = Dataset(dataset_path, block_size, batch_size)
 
-    model = BigramLanguageModel(d.vocab_size, n_embd, block_size)
+    model = BigramLanguageModel(d.vocab_size, n_embd, block_size, dropout)
     Xb, Yb = d.get_split_batch('train')
     logits, loss = model(Xb, Yb)
 

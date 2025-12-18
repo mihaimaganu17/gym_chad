@@ -64,7 +64,7 @@ class Block(nn.Module):
 
 
 class BigramLanguageModel(nn.Module):
-    def __init__(self, vocab_size, n_embd, block_size, n_blocks):
+    def __init__(self, vocab_size, n_embd, block_size, n_blocks, dropout):
         """
         Parameters:
             :param vocab_size: Size of vocabulary, in our case the number of unique individual tokens
@@ -72,6 +72,8 @@ class BigramLanguageModel(nn.Module):
             :param n_embd: Number of embeddings for each individual token
             :param block_size: Context length size
             :param n_blocks: Number of decoder multi-head self-attention blocks
+            :param dropout: Specifies the portion of neurons to be dropped out when going back into
+            the residual paths
         """
         super().__init__()
         self.vocab_size = vocab_size
@@ -88,7 +90,7 @@ class BigramLanguageModel(nn.Module):
         # Number of self-attention heads
         num_heads = 4
         # Sequential layer of `n_blocks` number of multi-head self-attention blocks
-        self.blocks = nn.Sequential(*[Block(num_heads, n_embd, block_size) for _ in n_blocks])
+        self.blocks = nn.Sequential(*[Block(num_heads, n_embd, block_size, dropout) for _ in n_blocks])
         # Pre normalisation layer for the last linear layer to make the features unit gaussian
         # (0 mean, 1 std)
         self.lm_head_ln_norm = nn.LayerNorm(n_embd),
