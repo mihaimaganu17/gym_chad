@@ -4,7 +4,7 @@ from torch.nn import functional as F
 import torch
 
 class MultiHeadAttention(nn.Module):
-    def __init__(self, num_heads, head_size, n_embd, block_size):
+    def __init__(self, num_heads, head_size, n_embd, block_size, dropout):
         """The `MultiHeadAttention` is used to split the embedding space into `num_heads` count of
         self-attention heads `Head`, each with a `head_size`. Concatenating all of them together
         gives us back the size of the embedding space
@@ -14,23 +14,27 @@ class MultiHeadAttention(nn.Module):
             :param head_size: Size of each of the self-attention head
             :param n_embd: The embedding size used for each of the self-attention heads
             :param block_size: Context length for each of the self-attention heads
+            :param dropout: Specifies a portion of neurons to be dropped out when going back in the
+            residual connections
         """
         super().__init__()
         self.num_heads = num_heads
-        self.heads = nn.ModuleList([Head(head_size, n_embd, block_size) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Head(head_size, n_embd, block_size, dropout) for _ in range(num_heads)])
         # Projection layer back into the residual connection
         self.proj = nn.Linear(n_embd, n_embd)
+        self.dropout = nn.Dropout(dropout)
 
 
     def forward(self, x):
         # Concatenate all the heads across the last dimension
         out = torch.cat([head(x) for head in self.heads], dim=-1)
         out = self.proj(out)
+        out = self.dropout(out)
         return out
 
 
 class Head(nn.Module):
-    def __init__(self, head_size, n_embd, block_size):
+    def __init__(self, head_size, n_embd, block_size, dropout):
         super().__init__()
 
         self.head_size = head_size
@@ -46,6 +50,8 @@ class Head(nn.Module):
 
         # Not a parameter of the model
         self.register_buffer('tril', torch.tril(torch.ones(self.block_size, self.block_size)))
+
+        self.dropout = nn.Dropout(0.2)
 
     
     def forward(self, x):
@@ -70,6 +76,8 @@ class Head(nn.Module):
         weights = weights.masked_fill(temp_tril == 0, float('-inf'))
         # Normalize distributions
         weights = F.softmax(weights, dim = -1)
+        # Prevent some of the affinity nodes from communicating
+        weights = self.dropout(weights)
 
         v = self.value(x)
         # Extract the actual value of the tokens now that they accumulated information from the

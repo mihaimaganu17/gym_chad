@@ -6,7 +6,7 @@ from torch.nn import functional as F
 from nanogpt.head import MultiHeadAttention
 
 class FeedForward(nn.Module):
-    def __init__(self, n_embd):
+    def __init__(self, n_embd, dropout):
         """Small feedforward network with a linear layer and an activation function"""
         super().__init__()
         self.net = nn.Sequential(
@@ -14,6 +14,8 @@ class FeedForward(nn.Module):
             nn.ReLU(),
             # Projection layer back into the residual connection
             nn.Linear(4 * n_embd, n_embd),
+            # Drop a portion of the neurons when going back into the residual pathways
+            nn.Dropout(dropout),
         )
 
 
@@ -23,7 +25,7 @@ class FeedForward(nn.Module):
     
 
 class Block(nn.Module):
-    def __init__(self, num_heads, n_embd, block_size):
+    def __init__(self, num_heads, n_embd, block_size, dropout):
         """A block pair communication given by multi-headed self-attention with computation over the
         communication given by the feedforward network
 
@@ -34,6 +36,8 @@ class Block(nn.Module):
             num_heads // n_embd
             :param n_embd: Size of the embedding space for a single token
             :param block_size: Context length
+            :param dropout: Specifies the portion of neurons to be dropped out when going back into
+            the residual paths
         """
         super().__init__()
         # Multiple self-attention heads are used to divide the embedding space equally. As such we
@@ -44,13 +48,13 @@ class Block(nn.Module):
         self.sa_ln = nn.LayerNorm(n_embd)
         # Create the multi-head self-attention layer. This handles the communication part between
         # the tokens
-        self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size)
+        self.sa_head = MultiHeadAttention(num_heads, n_embd // num_heads, n_embd, block_size, dropout)
         # Pre layer normalisation for the layer normalisation to make features unit gaussian
         # (0 mean, 1 std)
         self.ffwd_ln = nn.LayerNorm(n_embd)
         # After gathering all that data, each token thinks about that data individually. This
         # handles the computational part
-        self.ffwd = FeedForward(n_embd)
+        self.ffwd = FeedForward(n_embd, dropout)
 
 
     def forward(self, x_in):
