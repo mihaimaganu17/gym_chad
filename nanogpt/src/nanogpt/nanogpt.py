@@ -48,7 +48,7 @@ def gpt():
     block_size = 256
     # How many batches we are forwarding at a time
     batch_size = 64
-    n_embd = 64
+    n_embd = 384
     max_iters = 5000
     eval_interval = 500
     # Learning rate
