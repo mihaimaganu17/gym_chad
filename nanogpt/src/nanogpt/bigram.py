@@ -10,8 +10,10 @@ class FeedForward(nn.Module):
         """Small feedforward network with a linear layer and an activation function"""
         super().__init__()
         self.net = nn.Sequential(
-            nn.Linear(n_embd,n_embd),
-            nn.ReLU()
+            nn.Linear(n_embd, 4 * n_embd),
+            nn.ReLU(),
+            # Projection layer back into the residual connection
+            nn.Linear(4 * n_embd, n_embd),
         )
 
 
@@ -46,8 +48,8 @@ class Block(nn.Module):
 
 
     def forward(self, x_in):
-        x = self.sa_head(x_in)
-        out = self.ffwd(x)
+        x_in = x_in + self.sa_head(x_in)
+        out = x_in + self.ffwd(x_in)
         return out
 
 

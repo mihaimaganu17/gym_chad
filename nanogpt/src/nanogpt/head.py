@@ -18,11 +18,14 @@ class MultiHeadAttention(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.heads = nn.ModuleList([Head(head_size, n_embd, block_size) for _ in range(num_heads)])
+        # Projection layer back into the residual connection
+        self.proj = nn.Linear(n_embd, n_embd)
 
 
     def forward(self, x):
         # Concatenate all the heads across the last dimension
         out = torch.cat([head(x) for head in self.heads], dim=-1)
+        out = self.proj(out)
         return out
 
 
