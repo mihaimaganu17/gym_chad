@@ -1,6 +1,7 @@
 import torch
 
 from gpt2.train import GPT
+from torch.nn import functional as F
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
@@ -27,6 +28,30 @@ def hello() -> str:
     # Duplicated it 5 times (maybe torch.stack could also work? or torch.cat)
     tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (1, 8) -> (5, 8)
     x = tokens.to(device)
+
+    manual_seed = 42
+    torch.manual_seed(manual_seed)
+    torch.cuda.manual_seed(manual_seed)
+    torch.mps.manual_seed(manual_seed)
+
+    # While we did not get all the tokens that we want
+    while x.size(1) < max_new_tokens:
+        # Forward the model to get the logits
+        logits = model(x) # (B, T, vocab_size)
+        # Take the last of the logits at the last position
+        logits = logits[:, -1, :] # (B, vocab_size) for the last T
+        # Get the probabilities
+        probs = F.softmax(logits, dim=-1)
+        # Do top-k sampling of 50 (huggingface pipeline default)
+        # topk_probs here becomes (5, 50), topk_indices is (5, 50)
+        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+        # Select a token from the top-k probs
+        ix = torch.multinomial(topk_probs, 1) # (B, 1)
+        # gather the corresponding indices
+        xcol = torch.gather(topk_indices, -1, ix)
+        # append to the sequence the values and their indexes
+        x = torch.cat((x, xcol), dim=1)
+
     
     # Sampling from the HF GPT2
     #for example in gpt2_sample():
