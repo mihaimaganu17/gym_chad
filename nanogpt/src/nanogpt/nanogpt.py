@@ -8,7 +8,7 @@ torch.manual_seed(1337)
 
 @torch.no_grad()
 def eval_loss(model, dataset, num_iters = 200):
-    """Evaluate the loss as an overage over a number of iterations for both splits
+    """Evaluate the loss as an average over a number of iterations for both splits
     Parameters:
         :param model: Model to evaluate the loss over
         :param dataset: Dataset from which to sample in order to evaluate the model
@@ -60,11 +60,13 @@ def gpt():
     for idx in range(max_iters):
         # Get a new batch
         Xb, Yb = d.get_split_batch('train')
+        # Forward pass
         logits, loss = model(Xb, Yb)
         # Zero out the gradient such that it does not accumulate between sessions
         optimizer.zero_grad(set_to_none=True)
+        # Backward pass
         loss.backward()
-        # Perform the optimisation
+        # Perform the optimisation -> Nudging the parameters in the direction of the gradient
         optimizer.step()
 
         if idx % eval_interval == 0:

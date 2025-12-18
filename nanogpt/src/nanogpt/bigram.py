@@ -119,6 +119,7 @@ class BigramLanguageModel(nn.Module):
             probs = F.softmax(logits, dim = -1) # (B, C)
             # Sample from the distribution
             pred_idx = torch.multinomial(probs, num_samples = 1) # (B, 1)
+            # Add the new token to the previous tokens in the sequence
             idxs = torch.cat([idxs, pred_idx], dim=1)
 
         return idxs

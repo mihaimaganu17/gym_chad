@@ -48,18 +48,18 @@ class Dataset:
 
     def get_split_batch(self, split: str):
         """Sample a `batch_size` number of sequences of length `block_size` along with their
-        next character predcition from the desired `split` -> `train` or `val` data"""
+        next character prediction from the desired `split` -> `train` or `val` data"""
 
         # If the split is not `train` or `val`, it is invalid
         assert split in ['train', 'val']
         dataset = self.train_set if split == 'train' else self.val_set
 
         # Sample `batch_size` count of random indexes from the data up to the last
-        # index that is possible to issue a context of 8 elements
+        # index that is possible to issue a context of `block_size` elements
         idxs = torch.randint(0, len(dataset) - self.block_size, (self.batch_size,))
 
         # For each index, the context (or the input to the model) will be the sequence
-        # of eight characters starting with that index
+        # of `block_size` characters starting with that index
         x = torch.stack([dataset[idx:idx+self.block_size] for idx in idxs])
         # And the predictions will be the exact next character following that sequence
         y = torch.stack([dataset[idx+1:idx+self.block_size+1] for idx in idxs])
