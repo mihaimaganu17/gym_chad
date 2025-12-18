@@ -7,6 +7,7 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
+
 def hello() -> str:
     gpt2_showcase()
 
@@ -36,25 +37,22 @@ def hello() -> str:
 
     # While we did not get all the tokens that we want
     while x.size(1) < max_new_tokens:
-        # Forward the model to get the logits
-        logits = model(x) # (B, T, vocab_size)
-        # Take the last of the logits at the last position
-        logits = logits[:, -1, :] # (B, vocab_size) for the last T
-        # Get the probabilities
-        probs = F.softmax(logits, dim=-1)
-        # Do top-k sampling of 50 (huggingface pipeline default)
-        # topk_probs here becomes (5, 50), topk_indices is (5, 50)
-        topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-        # Select a token from the top-k probs
-        ix = torch.multinomial(topk_probs, 1) # (B, 1)
-
-        # gather the corresponding indices of that token
-        xcol = torch.gather(topk_indices, -1, ix)
-        print(ix)
-        print(xcol)
-        # append to the sequence the token indeces
-        x = torch.cat((x, xcol), dim=1)
-        break
+        with torch.no_grad():
+            # Forward the model to get the logits
+            logits = model(x) # (B, T, vocab_size)
+            # Take the last of the logits at the last position
+            logits = logits[:, -1, :] # (B, vocab_size) for the last T
+            # Get the probabilities
+            probs = F.softmax(logits, dim=-1)
+            # Do top-k sampling of 50 (huggingface pipeline default)
+            # topk_probs here becomes (5, 50), topk_indices is (5, 50)
+            topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+            # Select a token from the top-k probs
+            ix = torch.multinomial(topk_probs, 1) # (B, 1)
+            # gather the corresponding indices of that token
+            xcol = torch.gather(topk_indices, -1, ix)
+            # append to the sequence the token indeces
+            x = torch.cat((x, xcol), dim=1)
 
     # Print the generated text
     for i in range(num_return_sequences):

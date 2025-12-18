@@ -50,7 +50,6 @@ class CausalSelfAttention(nn.Module):
 
 
     def forward(self, x):
-        # TODO: I do not understand this forward
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
         qkv = self.c_attn(x)
@@ -70,7 +69,7 @@ class CausalSelfAttention(nn.Module):
         # Auto regressive mask, prevents referencing future tokens (The tril along the T channels)
         att = att.masked_fill(self.bias[:,:,:T,:T]==0, float('-inf'))
         # Normalize the attention. This softmax makes the `-inf` elements got to 0
-        att = F.softmax(att, dim=1)
+        att = F.softmax(att, dim=-1)
         # Get the weighted activations (B, nb, T, T) @ (B, nb, T, hs) -> (B, nb, T, hs)
         # Weighted sum of the values that we found interesting
         y = att @ v
@@ -154,21 +153,23 @@ class GPT(nn.Module):
 
     def forward(self, idx):
         # idx if of shape (B, T) where T is the timestep dimesion (number of tokens)
-        B, T = idx.shape
+        B, T = idx.size()
         # T cannot be bigger than the block size because the blocksize is the max sequence length
         assert T <= self.config.block_size, f"Time dimension T={T} is bigger than maximum context \
             length {self.config.block_size}"
 
         # Create a tensor of positions from 0 up to poistion at timestep T
         pos = torch.arange(0, T, dtype=torch.long, device=idx.device)
+
         # Forward token and position embeddings
         pos_emb = self.transformer.wpe(pos) # We get position embeddings (T, n_embd)
         tok_emb = self.transformer.wte(idx) # We get token embeddings (B, T, n_embd)
         # Position embeddings gets copied and broadcasted along the first dimension of token
         # embeddings
         x = tok_emb + pos_emb
+
         # Forward through the blocks
-        for block in self.transformer.h:
+        for (i, block) in enumerate(self.transformer.h):
             x = block(x)
         # Forward the final layer normalisation (B, T, n_embd)
         x = self.transformer.ln_f(x)
