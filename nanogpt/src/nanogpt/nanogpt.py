@@ -5,7 +5,11 @@ import torch
 
 torch.manual_seed(1337)
 
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+if device == 'cpu':
+    device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
+print(device)
 @torch.no_grad()
 def eval_loss(model, dataset, num_iters = 200):
     """Evaluate the loss as an average over a number of iterations for both splits
