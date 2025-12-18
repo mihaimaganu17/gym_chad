@@ -90,10 +90,10 @@ class BigramLanguageModel(nn.Module):
         # Number of self-attention heads
         num_heads = 4
         # Sequential layer of `n_blocks` number of multi-head self-attention blocks
-        self.blocks = nn.Sequential(*[Block(num_heads, n_embd, block_size, dropout) for _ in n_blocks])
+        self.blocks = nn.Sequential(*[Block(num_heads, n_embd, block_size, dropout) for _ in range(n_blocks)])
         # Pre normalisation layer for the last linear layer to make the features unit gaussian
         # (0 mean, 1 std)
-        self.lm_head_ln_norm = nn.LayerNorm(n_embd),
+        self.lm_head_ln_norm = nn.LayerNorm(n_embd)
         self.lm_head = nn.Linear(n_embd, vocab_size)
         
 
