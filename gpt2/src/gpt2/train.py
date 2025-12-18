@@ -5,6 +5,9 @@ from dataclasses import dataclass
 
 import torch
 
+# Modellign GPT2 in the huggingface transformers library
+# https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
+
 
 @dataclass
 class GPTConfig:
