@@ -11,7 +11,9 @@ if device == torch.device('cpu'):
 def hello() -> str:
     gpt2_showcase()
 
+    # Number of sequences to complete
     num_return_sequences = 5
+    # How many tokens to complete
     max_new_tokens=30
 
     model = GPT.from_pretrained('gpt2')
