@@ -12,6 +12,8 @@ if device == torch.device('cpu'):
 print(f"Using device {device}")
 
 # Enable TF32
+# Recommended read: https://docs.pytorch.org/tutorials/recipes/recipes/amp_recipe.html
+# https://docs.pytorch.org/docs/stable/notes/amp_examples.html
 torch.set_float32_matmul_precision('high')
 
 manual_seed = 0x1337_b00b
@@ -52,8 +54,12 @@ def gpt2_train():
         # Move the tensors to the device
         x, y = x.to(device), y.to(device)
 
-        # Forward pass
-        logits, loss = model(x, y)
+        # User torch autocast to automatically handle type casting for us to bfloat16 in all the
+        # operations on the buffer. Only cuda ampere enabled
+        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+            # Forward pass
+            logits, loss = model(x, y)
+            import code; code.interact(local=locals())
         # Zero out the gradients
         optim.zero_grad()
         # Perform a backward pass
