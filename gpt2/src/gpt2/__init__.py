@@ -8,7 +8,6 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
-device = 'cpu'
 print(f"Using device {device}")
 
 
@@ -28,6 +27,7 @@ def gpt2_train():
     # Demo example for modelling inputs and outputs to the model
     B, T = 4, 32
     buf = torch.tensor(ds.tokens[:B*T+1])
+    buf = buf.to(device)
     x = buf[:B*T].view(B, T)
     y = buf[1:].view(B, T)
 
@@ -53,8 +53,8 @@ def gpt2_train():
         optim.step()
         print(f"{i}. Loss {loss.item()}")
 
-    print(f"Loss {loss.item()}")
-    sample_model(model)
+    print(f"Final loss {loss.item()}")
+    # sample_model(model)
 
 
 def gpt2_inference() -> str:
