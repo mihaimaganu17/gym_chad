@@ -10,6 +10,10 @@ if device == torch.device('cpu'):
 
 print(f"Using device {device}")
 
+manual_seed = 0x1337_b00b
+torch.manual_seed(manual_seed)
+torch.cuda.manual_seed(manual_seed)
+torch.mps.manual_seed(manual_seed)
 
 def hello():
     gpt2_train()
@@ -39,7 +43,7 @@ def gpt2_train():
         x, y = ds.next_batch()
         # Move the tensors to the device
         x, y = x.to(device), y.to(device)
-        
+
         # Forward pass
         logits, loss = model(x, y)
         # Zero out the gradients
