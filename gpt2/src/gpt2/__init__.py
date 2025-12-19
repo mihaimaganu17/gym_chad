@@ -1,4 +1,5 @@
 import torch
+import time
 
 from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
@@ -23,8 +24,8 @@ def hello():
 
 def gpt2_train():
     # Hyperparameters
-    block_size = 32
-    batch_size = 4
+    block_size = 1024
+    batch_size = 16
     gpt_config = GPTConfig()
 
     # Loading Dataset
@@ -41,6 +42,8 @@ def gpt2_train():
     num_iters = 50
     # Training loop
     for i in range(num_iters):
+        t0 = time.time()
+
         # Get the next batch
         x, y = ds.next_batch()
         # Move the tensors to the device
@@ -48,14 +51,26 @@ def gpt2_train():
 
         # Forward pass
         logits, loss = model(x, y)
-        import code; code.interact(local=locals())
         # Zero out the gradients
         optim.zero_grad()
         # Perform a backward pass
         loss.backward()
         # Run an optimisation step
         optim.step()
-        print(f"{i}. Loss {loss.item()}")
+        # Wait for the GPU to finish all the work that was scheduled up to this point to get an
+        # accurate timing measurement
+        if torch.cuda.is_available():
+            # Benchmark:
+            # Only one GPU used
+            # 35 GB of RAM
+            # 330W-350W used
+            # 1000ms per batch with 16 samples
+            torch.cuda.synchronize()
+
+        t1 = time.time()
+        # Time difference in millis
+        dt = (t1 - t0)*1000 # time difference in miliseconds
+        print(f"{i}. Loss {loss.item()} -> time: {dt:.2f}ms")
 
     print(f"Final loss {loss.item()}")
     # sample_model(model)
