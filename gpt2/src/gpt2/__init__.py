@@ -18,24 +18,16 @@ def hello():
 def gpt2_train():
     # Hyperparameters
     block_size = 32
-    batch_size = 64
+    batch_size = 4
     gpt_config = GPTConfig()
 
     # Loading Dataset
     ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
-    
-    # Demo example for modelling inputs and outputs to the model
-    B, T = 4, 32
-    buf = torch.tensor(ds.tokens[:B*T+1])
-    buf = buf.to(device)
-    x = buf[:B*T].view(B, T)
-    y = buf[1:].view(B, T)
 
     # Get logits and compute loss
     model = GPT(GPTConfig())
     model.train()
     model.to(device)
-    # logits, loss = model(x, y)
 
     # Create a training optimizer
     optim = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -43,6 +35,11 @@ def gpt2_train():
     num_iters = 50
     # Training loop
     for i in range(num_iters):
+        # Get the next batch
+        x, y = ds.next_batch()
+        # Move the tensors to the device
+        x, y = x.to(device), y.to(device)
+        
         # Forward pass
         logits, loss = model(x, y)
         # Zero out the gradients
