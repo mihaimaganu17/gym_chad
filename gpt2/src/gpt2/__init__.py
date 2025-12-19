@@ -18,6 +18,8 @@ torch.mps.manual_seed(manual_seed)
 def hello():
     gpt2_train()
 
+# NVIDIA A100 sxm4 GPU specs
+# https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf
 
 def gpt2_train():
     # Hyperparameters
