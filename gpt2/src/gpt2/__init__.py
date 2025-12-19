@@ -22,9 +22,9 @@ def hello() -> str:
 
     # load the tokens from the tokeniser
     import tiktoken
-    # Get the token encodings
+    # Get the token encodings for gpt2
     enc = tiktoken.get_encoding('gpt2')
-    # Encode the beginning prompt
+    # Encode the beginning prompt we want completed
     tokens = enc.encode("Hello, I'm a language model")
     # Add the encodings to a tensor
     tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
@@ -45,14 +45,15 @@ def hello() -> str:
             # Take the last of the logits at the last position
             logits = logits[:, -1, :] # (B, vocab_size) for the last T
             # Get the probabilities
-            probs = F.softmax(logits, dim=-1)
+            probs = F.softmax(logits, dim=-1) # (B, vocab_size)
             # Do top-k sampling of 50 (huggingface pipeline default)
             # topk_probs here becomes (5, 50), topk_indices is (5, 50)
             topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
-            # Select a token from the top-k probs
-            ix = torch.multinomial(topk_probs, 1) # (B, 1)
-            # gather the corresponding indices of that token
-            xcol = torch.gather(topk_indices, -1, ix)
+            # Select a token from the top-k probs, getting the index inside topk
+            # torch.multinomial returns the indeces in the input list
+            token_idx = torch.multinomial(topk_probs, 1) # (B, 1)
+            # gather the corresponding indices of that token, indices contained in topk
+            xcol = torch.gather(topk_indices, -1, token_idx)
             # append to the sequence the token indeces
             x = torch.cat((x, xcol), dim=1)
 
