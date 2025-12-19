@@ -1,4 +1,6 @@
 import torch
+import tiktoken
+
 
 class Dataset:
     def __init__(self, file_name: str, block_size: int, batch_size: int):
@@ -16,15 +18,23 @@ class Dataset:
         with open(file_name, "r", encoding="utf-8") as f:
             self.text = f.read()
 
-        self._build_vocab()
-        self._build_encode_decode()
+        self._tokenise()
 
-        self.data = torch.tensor(self.encode(self.text), dtype=torch.long)
-        self._split_dataset()
+        #self._build_vocab()
+        #self._build_encode_decode()
+
+        #self.data = torch.tensor(self.encode(self.text), dtype=torch.long)
+        #self._split_dataset()
 
         # Context max length
         self.block_size = block_size
         self.batch_size = batch_size
+
+
+    def _tokenise(self):
+        enc = tiktoken.get_encoding('gpt2')
+        self.tokens = enc.encode(self.text)
+
 
 
     def _build_vocab(self):

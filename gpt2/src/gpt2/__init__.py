@@ -16,10 +16,14 @@ def hello():
 
 
 def gpt2_train():
+    # Hyperparameters
     block_size = 32
     batch_size = 64
+    gpt_config = GPTConfig()
+
+    # Loading Dataset
     ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
-    print(ds.text[:1000])
+    print(ds.tokens[:24])
 
 
 def gpt2_inference() -> str:
