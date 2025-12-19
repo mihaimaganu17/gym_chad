@@ -48,6 +48,7 @@ def gpt2_train():
 
         # Forward pass
         logits, loss = model(x, y)
+        import code; code.interact(local=locals())
         # Zero out the gradients
         optim.zero_grad()
         # Perform a backward pass
