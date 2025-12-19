@@ -158,6 +158,13 @@ class GPT(nn.Module):
         # Final layer that converts that outputs the logits as probabilities for indexes of tokens
         self.lm_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
+        # Weight sharing scheme -> Using the exact same wte embedding layer buffer from the
+        # beggining in the last layer, such that similar tokens get similar probabilities. This
+        # turns out to achieve better results
+        # Shadow the weight points of wte such that we use lm_head in both cases
+        self.transformer.wte.weight = self.lm_head.weight
+
+
 
     def forward(self, idx, targets=None):
         # idx if of shape (B, T) where T is the timestep dimesion (number of tokens)
