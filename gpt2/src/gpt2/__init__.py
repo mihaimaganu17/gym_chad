@@ -8,6 +8,7 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
+device = 'cpu'
 print(f"Using device {device}")
 
 
@@ -30,6 +31,13 @@ def gpt2_train():
     x = buf[:B*T].view(B, T)
     y = buf[1:].view(B, T)
 
+    # Get logits and compute loss
+    model = GPT(GPTConfig())
+    model.train()
+    model.to(device)
+    logits, loss = model(x, y)
+
+    print(f"Loss {loss.item()}")
 
 
 def gpt2_inference() -> str:

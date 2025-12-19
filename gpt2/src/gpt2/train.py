@@ -159,7 +159,7 @@ class GPT(nn.Module):
         self.lm_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
 
-    def forward(self, idx):
+    def forward(self, idx, targets=None):
         # idx if of shape (B, T) where T is the timestep dimesion (number of tokens)
         B, T = idx.size()
         # T cannot be bigger than the block size because the blocksize is the max sequence length
@@ -183,7 +183,17 @@ class GPT(nn.Module):
         x = self.transformer.ln_f(x)
         # (B, T, vocab_size)
         logits = self.lm_head(x)
-        return logits
+
+        loss = None
+        # If we get targets, we compute the loss
+        if targets is not None:
+            # Cross entropy does not like multidimensional tensors so we must flatten them
+            # logits: (B, T, vocab_size) -> (B * T, vocab_size)
+            # targets: (B, T) -> (B * T) -> gets broadcasted along vocab_size dimension (across all
+            # tokens)
+            loss = F.cross_entropy(logits.view(-1, logits.shape[-1]), targets.view(-1))
+
+        return logits, loss
 
 
     @classmethod 
