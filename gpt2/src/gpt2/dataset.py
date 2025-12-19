@@ -36,6 +36,27 @@ class Dataset:
         enc = tiktoken.get_encoding('gpt2')
         self.tokens = enc.encode(self.text)
 
+        print(f"Loaded {len(self.tokens)} tokens")
+        print(f"1 epoch contains {self.tokesn / (self.batch_size * self.block_size)} batches")
+        # Start at the beginning to sample batches
+        self.current_position = 0
+
+
+    def next_batch(self):
+        """
+        Iteratively get the next batch from the data wrapping at length of data (reseting to 0)
+        """
+        B, T = self.batch_size, self.block_size
+        buf = self.tokens[self.current_position:B*T+self.current_position+1]
+        x = buf[:-1].view(B,T)
+        y = buf[1:].view(B,T)
+        # Advance the position in the tensor
+        self.current_position += B * T
+        # If loading the next batch would be out of bounds, reset
+        if self.current_position + B*T+1 > len(self.tokens):
+            self.current_position = 0
+        return x,y
+
 
     def _split_dataset(self):
         # Split into train and validation
