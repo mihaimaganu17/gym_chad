@@ -59,7 +59,6 @@ def gpt2_train():
         with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
             # Forward pass
             logits, loss = model(x, y)
-            import code; code.interact(local=locals())
         # Zero out the gradients
         optim.zero_grad()
         # Perform a backward pass
