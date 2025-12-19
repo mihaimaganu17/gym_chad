@@ -69,13 +69,22 @@ def hello() -> str:
 
 
 def gpt2_showcase():
+    # Each model has 3 main stateful structures:
+    # - parameters: These are the learnable weights and biases and embeddings that the model learns
+    # and updates through the training process. They are accessed with `model.parameters()` in torch
+    # - layers: These are the layers with learnable parameters (convolutions, linear) and the
+    # registered buffers (tril) that make up the model. They can be accessed with
+    # `model.state_dict()` which returns a dictionary that maps each layer to its learnable
+    # parameters.
+    # - hyperparameters: These are the state and information of the optimiser used to train the the
+    # model (SGD, Adam, etc), where hyperparams are learning_rate, etc.
     from transformers import GPT2LMHeadModel
 
     model_hf = GPT2LMHeadModel.from_pretrained("gpt2")
     gpt2_state_dict = model_hf.state_dict()
 
-    for k, v in gpt2_state_dict.items():
-        print(k, v.shape)
+    for model_layer, learnable_params in gpt2_state_dict.items():
+        print(model_layer, learnable_params.shape)
 
 
 def gpt2_sample():
