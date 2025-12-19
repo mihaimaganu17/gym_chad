@@ -11,6 +11,9 @@ if device == torch.device('cpu'):
 
 print(f"Using device {device}")
 
+# Enable TF32
+torch.set_float32_matmul_precision('high')
+
 manual_seed = 0x1337_b00b
 torch.manual_seed(manual_seed)
 torch.cuda.manual_seed(manual_seed)
@@ -60,11 +63,13 @@ def gpt2_train():
         # Wait for the GPU to finish all the work that was scheduled up to this point to get an
         # accurate timing measurement
         if torch.cuda.is_available():
-            # Benchmark:
+            # Benchmark: Batch 16, Block 1024, Float32, Vanilla
             # Only one GPU used
             # 35 GB of RAM
             # 330W-350W used
             # 1000ms per batch with 16 samples
+
+            # Only enabling TF32 gets us a 3x improvement
             torch.cuda.synchronize()
 
         t1 = time.time()
