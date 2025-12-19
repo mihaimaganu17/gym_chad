@@ -35,23 +35,43 @@ def gpt2_train():
     model = GPT(GPTConfig())
     model.train()
     model.to(device)
-    logits, loss = model(x, y)
+    # logits, loss = model(x, y)
+
+    # Create a training optimizer
+    optim = torch.optim.AdamW(model.parameters(), lr=3e-4)
+
+    num_iters = 50
+    # Training loop
+    for i in range(num_iters):
+        # Forward pass
+        logits, loss = model(x, y)
+        # Zero out the gradients
+        optim.zero_grad()
+        # Perform a backward pass
+        loss.backward()
+        # Run an optimisation step
+        optim.step()
+        print(f"{i}. Loss {loss.item()}")
 
     print(f"Loss {loss.item()}")
+    sample_model(model)
 
 
 def gpt2_inference() -> str:
     gpt2_showcase()
 
-    # Number of sequences to complete
-    num_return_sequences = 5
-    # How many tokens to complete
-    max_new_tokens=30
-
     model = GPT(GPTConfig())
     model.eval()
     model.to(device)
 
+
+def sample_model(model):
+    # Put model in evaluation mode
+    model.eval()
+    # Number of sequences to complete
+    num_return_sequences = 5
+    # How many tokens to complete
+    max_new_tokens=30
     # load the tokens from the tokeniser
     import tiktoken
     # Get the token encodings for gpt2
@@ -73,7 +93,7 @@ def gpt2_inference() -> str:
     while x.size(1) < max_new_tokens:
         with torch.no_grad():
             # Forward the model to get the logits
-            logits = model(x) # (B, T, vocab_size)
+            logits, _loss = model(x) # (B, T, vocab_size)
             # Take the last of the logits at the last position
             logits = logits[:, -1, :] # (B, vocab_size) for the last T
             # Get the probabilities
@@ -99,6 +119,8 @@ def gpt2_inference() -> str:
     # Sampling from the HF GPT2
     #for example in gpt2_sample():
     #    print(example)
+    # Put model back in traninig mode
+    model.train()
     return "Hello from gpt2!"
 
 
