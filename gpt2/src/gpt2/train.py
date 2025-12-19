@@ -41,6 +41,8 @@ class CausalSelfAttention(nn.Module):
         self.c_attn = nn.Linear(self.config.n_embd, 3 * self.config.n_embd)
         # output proojection
         self.c_proj = nn.Linear(self.config.n_embd, self.config.n_embd)
+        # setting a flag for this module to be properly initialised
+        self.c_proj.NANOGPT_SCALE_INIT = 1
         # regularization parameters
         self.n_head = self.config.n_head
         self.n_embd = self.config.n_embd
@@ -93,6 +95,8 @@ class MLP(nn.Module):
         # Like ReLU, but smoother and without the dead neurons
         self.gelu = nn.GELU(approximate='tanh')
         self.c_proj = nn.Linear(4 * self.config.n_embd, self.config.n_embd)
+        # setting a flag for this module to be properly initialised
+        self.c_proj.NANOGPT_SCALE_INIT = 1
 
 
     def forward(self, x):
@@ -171,15 +175,19 @@ class GPT(nn.Module):
     def _init_weights(self, module):
         # https://github.com/openai/gpt-2/blob/master/src/model.py#L53-L54
         if isinstance(module, nn.Linear):
+            std = 0.02
+            if hasattr(module, 'NANOGPT_SCALE_INIT'):
+                # square root of number of residual layers (1 in self attention, 1 in MLP, so 2,
+                # repeated for each block)
+                std = (2 * self.config.n_h_layer) ** -0.5
             # Fill the input tensor with values drawn from a normal distribution
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.2)
+            torch.nn.init.normal_(module.weight, mean=0.0, std=std)
             # If there is a bias, make it 0
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         # https://github.com/openai/gpt-2/blob/master/src/model.py#L152-L155
         elif isinstance(module, nn.Embedding):
             torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
-
 
 
     def forward(self, idx, targets=None):
