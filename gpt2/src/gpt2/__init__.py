@@ -40,6 +40,7 @@ def gpt2_train():
     model = GPT(GPTConfig())
     model.train()
     model.to(device)
+    model = torch.compile(model)
 
     # Create a training optimizer
     optim = torch.optim.AdamW(model.parameters(), lr=3e-4)
@@ -68,13 +69,15 @@ def gpt2_train():
         # Wait for the GPU to finish all the work that was scheduled up to this point to get an
         # accurate timing measurement
         if torch.cuda.is_available():
-            # Benchmark: Batch 16, Block 1024, Float32, Vanilla
+            # 0. Benchmark: Batch 16, Block 1024, Float32, Vanilla
             # Only one GPU used
             # 35 GB of RAM
             # 330W-350W used
             # 1000ms per batch with 16 samples
 
-            # Only enabling TF32 gets us a 3x improvement
+            # 1. Only enabling TF32 gets us a 3x improvement: 331 ms and 49k tok/nanos
+            # 2. torch.autocast to BF16 improves a bit, but not a lot: 290ms and 56k tok/nanos
+            # 3. torch.compile improves by around 2.3x: 124ms per batch and 132k tok/nanos
             torch.cuda.synchronize()
 
         t1 = time.time()
