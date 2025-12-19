@@ -1,14 +1,28 @@
 import torch
 
-from gpt2.train import GPT
+from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
+from gpt2.dataset import Dataset
 
 device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
+print(f"Using device {device}")
 
-def hello() -> str:
+
+def hello():
+    gpt2_train()
+
+
+def gpt2_train():
+    block_size = 32
+    batch_size = 64
+    ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
+    print(ds.text[:1000])
+
+
+def gpt2_inference() -> str:
     gpt2_showcase()
 
     # Number of sequences to complete
@@ -16,7 +30,7 @@ def hello() -> str:
     # How many tokens to complete
     max_new_tokens=30
 
-    model = GPT.from_pretrained('gpt2')
+    model = GPT(GPTConfig())
     model.eval()
     model.to(device)
 
@@ -86,8 +100,8 @@ def gpt2_showcase():
     model_hf = GPT2LMHeadModel.from_pretrained("gpt2")
     gpt2_state_dict = model_hf.state_dict()
 
-    for model_layer, learnable_params in gpt2_state_dict.items():
-        print(model_layer, learnable_params.shape)
+    #for model_layer, learnable_params in gpt2_state_dict.items():
+        #print(model_layer, learnable_params.shape)
 
 
 def gpt2_sample():
