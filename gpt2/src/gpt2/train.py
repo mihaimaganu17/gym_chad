@@ -52,6 +52,7 @@ class CausalSelfAttention(nn.Module):
     def forward(self, x):
         B, T, C = x.size() # batch size, sequence length, embedding dimensionality (n_embd)
 
+        # We compute query, keys and values at the same time for performance reasons
         qkv = self.c_attn(x)
         # Get query, key, values, splitting along the last dimension (3 * n_embd)
         # They were processed as a contacatenated tensor for better performance
@@ -65,10 +66,14 @@ class CausalSelfAttention(nn.Module):
         # We transpose to have (B, nb, T, hs) @ (B, nb, hs, T) -> (B, nb, T, T)
         # We also scale the attention with 1/sqrt(last key dimension) to make it unit gaussian
         # 0 mean, 1 std
+        # Queries for a token T tells what the token is looking for and keys tell what the token
+        # contains. As such multiplying the queries of a token with the keys of the others, start
+        # to create affinities between tokens with the bigger result.
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         # Auto regressive mask, prevents referencing future tokens (The tril along the T channels)
         att = att.masked_fill(self.bias[:,:,:T,:T]==0, float('-inf'))
-        # Normalize the attention. This softmax makes the `-inf` elements got to 0
+        # Normalize the attention. This softmax makes the `-inf` elements go to 0, such that we
+        # ignore future tokens.
         att = F.softmax(att, dim=-1)
         # Get the weighted activations (B, nb, T, T) @ (B, nb, T, hs) -> (B, nb, T, hs)
         # Weighted sum of the values that we found interesting
@@ -124,7 +129,9 @@ class Block(nn.Module):
         x = x + self.attn(self.ln_1(x))
         # Whereas MLP does not aid with exchange of information across the tokens, but rather only
         # provides information about a single token itself, similar to mapping the token from the
-        # supervision all the way to the final (next) token layer.
+        # supervision all the way to the final (next) token layer and also give the tokens the
+        # chance to compute all the communication they received so far from the other tokens through
+        # attention.
         x = x + self.mlp(self.ln_2(x))
         return x
 
@@ -142,12 +149,13 @@ class GPT(nn.Module):
             wte = nn.Embedding(self.config.vocab_size, self.config.n_embd),
             # Weights of the position embeddings
             wpe = nn.Embedding(self.config.block_size, self.config.n_embd),
-            # Weights of the hidden layers (which are actually hidden multihead self-attention blocks
+            # Weights of the hidden layers (which are actually hidden multihead self-attention
+            # blocks
             h = nn.ModuleList([Block(config) for _ in range(self.config.n_h_layer)]),
             # The final layer normalization before the last linear layer outputing the logits.
             ln_f = nn.LayerNorm(self.config.n_embd),
         ))
-        # Final classifier that converts the embeddings into probability for indexes of tokens
+        # Final layer that converts that outputs the logits as probabilities for indexes of tokens
         self.lm_head = nn.Linear(self.config.n_embd, self.config.vocab_size, bias=False)
 
 
