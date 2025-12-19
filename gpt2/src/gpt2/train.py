@@ -164,6 +164,22 @@ class GPT(nn.Module):
         # Shadow the weight points of wte such that we use lm_head in both cases
         self.transformer.wte.weight = self.lm_head.weight
 
+        # Apply this function to all `children()` Modules of this torch module
+        self.apply(self._init_weights)
+
+
+    def _init_weights(self, module):
+        # https://github.com/openai/gpt-2/blob/master/src/model.py#L53-L54
+        if isinstance(module, nn.Linear):
+            # Fill the input tensor with values drawn from a normal distribution
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.2)
+            # If there is a bias, make it 0
+            if module.bias is not None:
+                torch.nn.init.zeros_(module.bias)
+        # https://github.com/openai/gpt-2/blob/master/src/model.py#L152-L155
+        elif isinstance(module, nn.Embedding):
+            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
 
 
     def forward(self, idx, targets=None):
