@@ -18,6 +18,11 @@ class Dataset:
         with open(file_name, "r", encoding="utf-8") as f:
             self.text = f.read()
 
+        # Context max length
+        self.block_size = block_size
+        # Size of each batch
+        self.batch_size = batch_size
+
         self._tokenise()
 
         #self._build_vocab()
@@ -26,18 +31,16 @@ class Dataset:
         #self.data = torch.tensor(self.encode(self.text), dtype=torch.long)
         #self._split_dataset()
 
-        # Context max length
-        self.block_size = block_size
-        self.batch_size = batch_size
+
 
 
     def _tokenise(self):
         # This essentially takes the place of _build_vocab and _build_encode_decode
         enc = tiktoken.get_encoding('gpt2')
-        self.tokens = enc.encode(self.text)
+        self.tokens = torch.tensor(enc.encode(self.text))
 
         print(f"Loaded {len(self.tokens)} tokens")
-        print(f"1 epoch contains {self.tokesn / (self.batch_size * self.block_size)} batches")
+        print(f"1 epoch contains {len(self.tokens) / (self.batch_size * self.block_size)} batches")
         # Start at the beginning to sample batches
         self.current_position = 0
 
