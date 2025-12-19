@@ -23,7 +23,13 @@ def gpt2_train():
 
     # Loading Dataset
     ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
-    print(ds.tokens[:24])
+    
+    # Demo example for modelling inputs and outputs to the model
+    B, T = 4, 32
+    buf = torch.tensor(ds.tokens[:B*T+1])
+    x = buf[:B*T].view(B, T)
+    y = buf[1:].view(B, T)
+
 
 
 def gpt2_inference() -> str:

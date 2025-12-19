@@ -32,22 +32,9 @@ class Dataset:
 
 
     def _tokenise(self):
+        # This essentially takes the place of _build_vocab and _build_encode_decode
         enc = tiktoken.get_encoding('gpt2')
         self.tokens = enc.encode(self.text)
-
-
-
-    def _build_vocab(self):
-        self.vocab = sorted(list(set(self.text)))
-        self.vocab_size = len(self.vocab)
-
-
-    def _build_encode_decode(self):
-        # Building the encoder and decoder
-        self.ctoi = {ch:idx for (idx, ch) in enumerate(self.vocab)}
-        self.itoc = {idx:ch for (ch, idx) in self.ctoi.items()}
-        self.encode = lambda text: [self.ctoi[ch] for ch in text]
-        self.decode = lambda idxs: ''.join([self.itoc[idx] for idx in idxs])
 
 
     def _split_dataset(self):
@@ -77,3 +64,16 @@ class Dataset:
         x = x.to(device)
         y = y.to(device)
         return (x, y)
+
+
+    def _build_vocab(self):
+        self.vocab = sorted(list(set(self.text)))
+        self.vocab_size = len(self.vocab)
+
+
+    def _build_encode_decode(self):
+        # Building the encoder and decoder
+        self.ctoi = {ch:idx for (idx, ch) in enumerate(self.vocab)}
+        self.itoc = {idx:ch for (ch, idx) in self.ctoi.items()}
+        self.encode = lambda text: [self.ctoi[ch] for ch in text]
+        self.decode = lambda idxs: ''.join([self.itoc[idx] for idx in idxs])
