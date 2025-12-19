@@ -14,6 +14,8 @@ print(f"Using device {device}")
 # Enable TF32
 # Recommended read: https://docs.pytorch.org/tutorials/recipes/recipes/amp_recipe.html
 # https://docs.pytorch.org/docs/stable/notes/amp_examples.html
+# Torch compile: https://docs.pytorch.org/tutorials/intermediate/torch_compile_full_example.html
+# Kernel fusion
 torch.set_float32_matmul_precision('high')
 
 manual_seed = 0x1337_b00b
