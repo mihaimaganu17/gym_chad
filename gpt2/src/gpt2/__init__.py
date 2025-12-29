@@ -41,7 +41,7 @@ def gpt2_train():
     assert total_batch_size % (batch_size * block_size) == 0
     # For how many steps (forward and backward is a single step, without resetting the gradient)
     # do we need to accumulate the gradient for
-    grad_acc_steps = total_batch_size / (batch_size * block_size)
+    grad_acc_steps = int(total_batch_size / (batch_size * block_size))
     print(f"total desired batch size {total_batch_size}")
     print(f"=> accumulating gradient for {grad_acc_steps} steps")
 
@@ -68,9 +68,11 @@ def gpt2_train():
         # Zero out the gradients
         optim.zero_grad()
 
+        # Keep track of the accumulated loss
+        loss_accum = 0.0
         
         # We use gradient accumulationg to simulate a big batch size (0.5 million)
-        for micro_step in grad_acc_steps:
+        for micro_step in range(grad_acc_steps):
             # get the next batch
             x, y = ds.next_batch()
             # move the tensors to the device
@@ -83,6 +85,8 @@ def gpt2_train():
                 logits, loss = model(x, y)
             # Normalize the loss to compensate for the batch
             loss = loss / grad_acc_steps
+            # Keep track of the accumulated loss
+            loss_accum += loss.detach()
             # perform a backward pass and deposit gradients without zeroing them, because we are
             # doing grad accumulation
             loss.backward()
@@ -108,14 +112,19 @@ def gpt2_train():
             # 3. torch.compile improves by around 2.3x: 124ms per batch and 132k tok/nanos
             # 4. Using FlashAttention -> torch.nn.function.scaled_dot_product 90ms per batch and 180k tok/nanos
             # 5. Increasing vocab size to be a power of 2 -> 87ms per batch, 188k tok/nanos
+            # 6. With weight decay, lr scheduler things do not change significantly
+            # 7. With gradient accumulation (batch get 0.5M) -> 2670ms per batch, which is roughly
+            # 32 (micro batches) * 87ms from step 5 above and 196k tok / nanos which is an increase
+            # in token size
+            # 
             torch.cuda.synchronize()
 
         t1 = time.time()
         # Time difference in millis
         dt = (t1 - t0)*1000 # time difference in miliseconds
         # Also measure tokens per second
-        tokens_per_nanosecs = (ds.batch_size * ds.block_size) / (t1 - t0)
-        print(f"{step}. Loss {loss.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
+        tokens_per_nanosecs = (ds.batch_size * ds.block_size * grad_acc_steps) / (t1 - t0)
+        print(f"{step}. Loss {loss_accum.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
 
     print(f"Final loss {loss.item()}")
     # sample_model(model)
