@@ -1,5 +1,6 @@
 import torch
 import time
+import os
 
 from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
@@ -18,12 +19,52 @@ print(f"Using device {device}")
 # Kernel fusion
 torch.set_float32_matmul_precision('high')
 
+# Use DistributedDataParallel from PyTorch
+from torch.distributed import init_process_group, destroy_process_group
+
+
+def set_ddp():
+    # Set up DDP
+    # torchrun command sets the env variables RANK, LOCAL_RANK and WORLD_SIZE
+    global device
+
+    # Check if DDP is running
+    ddp = int(os.environ.get('RANK', -1)) != -1
+    # If it is not running, set it up
+    if ddp:
+        assert torch.cuda.is_available(), "We need CUDA for DDP"
+        # nccl is default backend for cuda
+        init_process_group(backend='nccl')
+        ddp_rank = int(os.environ.get('RANK'))
+        # Used in a multi-node setting
+        ddp_local_rank = int(os.environ.get('LOCAL_RANK'))
+        ddp_world_size = int(os.environ.get('WORLD_SIZE'))
+        device = f"cuda:{ddp_local_rank}"
+        torch.cuda.set_device(device)
+        # This process will do logging, checkpointing, etc.
+        master_process = ddp_rank == 0
+    else:
+        # vanilla, non-DDP run
+        ddp_rank = 0
+        ddp_local_rank = 0
+        ddp_world_size = 1 
+        master_process = True
+        device = 'cpu'
+        if torch.cuda.is_available():
+            device = 'cuda'
+        elif torch.mps.is_available():
+            device = 'mps'
+        print(f"using device {device}")
+    
+
+
 manual_seed = 0x1337_b00b
 torch.manual_seed(manual_seed)
 torch.cuda.manual_seed(manual_seed)
 torch.mps.manual_seed(manual_seed)
 
 def hello():
+    set_ddp()
     gpt2_train()
 
 # NVIDIA A100 sxm4 GPU specs
