@@ -93,11 +93,16 @@ def gpt2_train():
     ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size,
         process_rank=ddp_rank, num_processes=ddp_world_size)
 
-    # Get logits and compute loss
+    # Create model
     model = GPT(gpt_config)
     model.train()
     model.to(device)
     model = torch.compile(model)
+
+    if ddp:
+        from torch.nn.parallel import DistributedDataParallel as DDP
+        # Wrap the model in a Distributed Data container
+        model = DDP(model, device_ids=[ddp_local_rank])
 
     # Create a training optimizer
     # optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
