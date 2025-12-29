@@ -37,7 +37,6 @@ if ddp:
     # Used in a multi-node setting
     ddp_local_rank = int(os.environ.get('LOCAL_RANK'))
     ddp_world_size = int(os.environ.get('WORLD_SIZE'))
-    print(f"ddp world size {ddp_world_size}")
     device = f"cuda:{ddp_local_rank}"
     torch.cuda.set_device(device)
     # This process will do logging, checkpointing, etc.
@@ -87,15 +86,12 @@ def gpt2_train():
         print(f"total desired batch size {total_batch_size}")
         print(f"=> accumulating gradient for {grad_acc_steps} steps")
 
-    print("I am GPU ", ddp_rank)
-    print("Bye")
-    import sys; sys.exit(0)
-
     # 50304 is a nice number because it can be divided by 2 multiple times, instead of 50257
     gpt_config = GPTConfig(vocab_size=50304)
 
     # Loading Dataset
-    ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
+    ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size,
+        process_rank=ddp_rank, num_processes=ddp_world_size)
 
     # Get logits and compute loss
     model = GPT(gpt_config)
@@ -299,5 +295,5 @@ def gpt2_sample():
     examples = generator("Hello, I'm a langauge model", max_new_tokens=30, num_return_sequences=5)
     return examples
 
-
+# Used for torch ddp
 hello()
