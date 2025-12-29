@@ -33,13 +33,14 @@ def gpt2_train():
     # Hyperparameters
     block_size = 1024
     batch_size = 16
-    gpt_config = GPTConfig()
+    # 50304 is a nice number because it can be divided by 2 multiple times, instead of 50257
+    gpt_config = GPTConfig(vocab_size=50304)
 
     # Loading Dataset
     ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size)
 
     # Get logits and compute loss
-    model = GPT(GPTConfig())
+    model = GPT(gpt_config)
     model.train()
     model.to(device)
     model = torch.compile(model)
@@ -80,7 +81,8 @@ def gpt2_train():
             # 1. Only enabling TF32 gets us a 3x improvement: 331 ms and 49k tok/nanos
             # 2. torch.autocast to BF16 improves a bit, but not a lot: 290ms and 56k tok/nanos
             # 3. torch.compile improves by around 2.3x: 124ms per batch and 132k tok/nanos
-            # 3. Using FlashAttention -> torch.nn.function.scaled_dot_product 90ms per batch and 180k tok/nanos
+            # 4. Using FlashAttention -> torch.nn.function.scaled_dot_product 90ms per batch and 180k tok/nanos
+            # 5. Increasing vocab size to be a power of 2 -> 87ms per batch, 188k tok/nanos
             torch.cuda.synchronize()
 
         t1 = time.time()
