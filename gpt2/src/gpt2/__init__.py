@@ -67,6 +67,8 @@ def gpt2_train():
         optim.zero_grad()
         # Perform a backward pass
         loss.backward()
+        # Clip the global norm of the gradients (L2 norm) in order to scale gradients
+        norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         # Run an optimisation step
         optim.step()
         # Wait for the GPU to finish all the work that was scheduled up to this point to get an
@@ -90,7 +92,7 @@ def gpt2_train():
         dt = (t1 - t0)*1000 # time difference in miliseconds
         # Also measure tokens per second
         tokens_per_nanosecs = (ds.batch_size * ds.block_size) / (t1 - t0)
-        print(f"{i}. Loss {loss.item()} -> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
+        print(f"{i}. Loss {loss.item()} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
 
     print(f"Final loss {loss.item()}")
     # sample_model(model)
