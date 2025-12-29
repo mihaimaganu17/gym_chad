@@ -46,7 +46,7 @@ def gpt2_train():
     model = torch.compile(model)
 
     # Create a training optimizer
-    optim = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
 
     num_iters = 50
     # Training loop
