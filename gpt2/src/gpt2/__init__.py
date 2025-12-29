@@ -5,7 +5,7 @@ from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
 from gpt2.dataset import Dataset
 
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+device = 'cuda' if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
@@ -46,7 +46,8 @@ def gpt2_train():
     model = torch.compile(model)
 
     # Create a training optimizer
-    optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+    # optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
+    optim = model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
 
     num_iters = 50
     # Training loop
