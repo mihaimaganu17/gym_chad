@@ -30,9 +30,21 @@ def hello():
 # https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf
 
 def gpt2_train():
+    # Use gradient accumulation to simulate a big batch size
+    total_batch_size = 524288 # 2 ** 19, ~0.5M, in number of tokens
     # Hyperparameters
-    block_size = 1024
-    batch_size = 16
+    block_size = 1024 # context length
+    batch_size = 16 # micro batch size
+
+    # We need to make sure the micro batch size multiplied by the context length can divide the
+    # total batchsize in order to use gradient accumulation.
+    assert total_batch_size % (batch_size * block_size) == 0
+    # For how many steps (forward and backward is a single step, without resetting the gradient)
+    # do we need to accumulate the gradient for
+    grad_acc_steps = total_batch_size / (batch_size * block_size)
+    print(f"total desired batch size {total_batch_size}")
+    print(f"=> accumulating gradient for {grad_acc_steps} steps")
+
     # 50304 is a nice number because it can be divided by 2 multiple times, instead of 50257
     gpt_config = GPTConfig(vocab_size=50304)
 
@@ -53,21 +65,24 @@ def gpt2_train():
     # Training loop
     for step in range(num_iters):
         t0 = time.time()
-
-        # Get the next batch
-        x, y = ds.next_batch()
-        # Move the tensors to the device
-        x, y = x.to(device), y.to(device)
-
-        # User torch autocast to automatically handle type casting for us to bfloat16 in all the
-        # operations on the buffer. Only cuda ampere enabled
-        with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
-            # Forward pass
-            logits, loss = model(x, y)
         # Zero out the gradients
         optim.zero_grad()
-        # Perform a backward pass
-        loss.backward()
+
+        # We use gradient accumulationg to simulate a big batch size (0.5 million)
+        for micro_step in grad_acc_steps:
+            # get the next batch
+            x, y = ds.next_batch()
+            # move the tensors to the device
+            x, y = x.to(device), y.to(device)
+
+            # user torch autocast to automatically handle type casting for us to bfloat16 in all the
+            # operations on the buffer. only cuda ampere enabled
+            with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
+                # forward pass
+                logits, loss = model(x, y)
+            # perform a backward pass and deposit gradients without zeroing them, because we are
+            # doing grad accumulation
+            loss.backward()
         # Clip the global norm of the gradients (L2 norm) in order to scale gradients
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         # Determine and set the learning rate for this iteration
