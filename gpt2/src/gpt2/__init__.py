@@ -5,6 +5,7 @@ import os
 from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
 from gpt2.dataset import Dataset
+from torch import distributed as dist
 
 device = 'cuda' if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
@@ -134,9 +135,20 @@ def gpt2_train():
             loss = loss / grad_acc_steps
             # Keep track of the accumulated loss
             loss_accum += loss.detach()
+            # When we are using DDP, we don't want to synchronize (all reduce) at every micro step.
+            # Instead we only want to synchronize at the last micro step of every gradient
+            # accumulation part.
+            if ddp:
+                # This boolean is used instead of no_grad() context manager
+                model.require_backward_grad_sync = (micro_step + 1 == grad_acc_steps)
             # perform a backward pass and deposit gradients without zeroing them, because we are
             # doing grad accumulation
             loss.backward()
+
+        # If we are using DDP, we also want to average the accumulated loss across all ranks and it
+        # deposits that average across all the ranks
+        if ddp:
+            dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
         # Clip the global norm of the gradients (L2 norm) in order to scale gradients
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         # Determine and set the learning rate for this iteration
@@ -170,10 +182,12 @@ def gpt2_train():
         # Time difference in millis
         dt = (t1 - t0)*1000 # time difference in miliseconds
         # Also measure tokens per second
-        tokens_per_nanosecs = (ds.batch_size * ds.block_size * grad_acc_steps) / (t1 - t0)
-        print(f"{step}. Loss {loss_accum.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
+        tokens_per_nanosecs = (ds.batch_size * ds.block_size * grad_acc_steps * ddp_world_size) / (t1 - t0)
 
-    print(f"Final loss {loss.item()}")
+        # Only print progress in the master process
+        if master_process:
+            print(f"{step}. Loss {loss_accum.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
+
     # sample_model(model)
 
 
@@ -302,3 +316,6 @@ def gpt2_sample():
 
 # Used for torch ddp
 hello()
+
+if ddp:
+    destroy_process_group()
