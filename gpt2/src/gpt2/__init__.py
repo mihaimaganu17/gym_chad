@@ -57,7 +57,7 @@ else:
 
 # DDP launch for 8 GPUs
 # For docker bridge, make sure you export the localhost as the master addr
-# export MASTER_ADDR=127.0.0.1
+# In vast.ai, need to export NCCL_SOCKET_IFNAME=eth0 for it to work
 # torchrun --standalone --nproc-per-node=8 src/__init__.py
 
 manual_seed = 0x1337_b00b
