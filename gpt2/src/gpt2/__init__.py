@@ -96,7 +96,7 @@ def gpt2_train():
         dt = (t1 - t0)*1000 # time difference in miliseconds
         # Also measure tokens per second
         tokens_per_nanosecs = (ds.batch_size * ds.block_size) / (t1 - t0)
-        print(f"{i}. Loss {loss.item()} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
+        print(f"{step}. Loss {loss.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
 
     print(f"Final loss {loss.item()}")
     # sample_model(model)
