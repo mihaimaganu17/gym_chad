@@ -50,7 +50,7 @@ def gpt2_train():
 
     num_iters = 50
     # Training loop
-    for i in range(num_iters):
+    for step in range(num_iters):
         t0 = time.time()
 
         # Get the next batch
@@ -69,6 +69,10 @@ def gpt2_train():
         loss.backward()
         # Clip the global norm of the gradients (L2 norm) in order to scale gradients
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        # Determine and set the learning rate for this iteration
+        lr = get_lr(step)
+        for param_group in optim.param_groups:
+            param_group['lr'] = lr
         # Run an optimisation step
         optim.step()
         # Wait for the GPU to finish all the work that was scheduled up to this point to get an
@@ -96,6 +100,35 @@ def gpt2_train():
 
     print(f"Final loss {loss.item()}")
     # sample_model(model)
+
+
+# Maximum learning rate
+max_lr = 6e-4
+# Minimum learning rate -> 10% of the maximum learning rate
+min_lr = max_lr * 0.1
+# Warmup steps for the learning rate -> For how many steps we want to increase the learning rate in
+# the beginning
+warmup_steps = 10
+# How many steps we want to apply the cosine decay for
+max_steps = 50
+
+def get_lr(step):
+    # Learning rate scheduler with warmup and cosine decay
+    import math
+    
+    # 1) Linear warmup of learning rate
+    if step < warmup_steps:
+        return max_lr * (step + 1) / warmup_steps
+
+    # 2) If we already surpassed the threshold for cosine decay, we return the minimum learning rate
+    if step > max_steps:
+        return min_lr
+
+    # 3) In between warmup and minimum, use cosine decay
+    decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
+    assert 0 <= decay_ratio <= 1
+    coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    return min_lr + coeff * (max_lr - min_lr)
 
 
 def gpt2_inference() -> str:
