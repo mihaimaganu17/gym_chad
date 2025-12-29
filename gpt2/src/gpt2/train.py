@@ -64,6 +64,8 @@ class CausalSelfAttention(nn.Module):
         k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nb, T, hs)
+        
+        
         # attention matrix for all the queries and keys
         # We transpose to have (B, nb, T, hs) @ (B, nb, hs, T) -> (B, nb, T, T)
         # We also scale the attention with 1/sqrt(last key dimension) to make it unit gaussian
@@ -71,15 +73,19 @@ class CausalSelfAttention(nn.Module):
         # Queries for a token T tells what the token is looking for and keys tell what the token
         # contains. As such multiplying the queries of a token with the keys of the others, start
         # to create affinities between tokens with the bigger result.
-        att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
+        # att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
         # Auto regressive mask, prevents referencing future tokens (The tril along the T channels)
-        att = att.masked_fill(self.bias[:,:,:T,:T]==0, float('-inf'))
+        # att = att.masked_fill(self.bias[:,:,:T,:T]==0, float('-inf'))
         # Normalize the attention. This softmax makes the `-inf` elements go to 0, such that we
         # ignore future tokens.
-        att = F.softmax(att, dim=-1)
+        # att = F.softmax(att, dim=-1)
         # Get the weighted activations (B, nb, T, T) @ (B, nb, T, hs) -> (B, nb, T, hs)
         # Weighted sum of the values that we found interesting
-        y = att @ v
+        # y = att @ v
+
+        # Use FlashAttention to compute attention
+        y = F.scaled_dot_product_attention(q, k, v, is_causal=True)
+
         # (B, nb, T, hs) -> (B, T, nb, hs) -> (B, T, C) where C is n_embd
         y = y.transpose(1, 2).contiguous().view(B, T, C) 
         # output projection

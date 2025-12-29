@@ -80,6 +80,7 @@ def gpt2_train():
             # 1. Only enabling TF32 gets us a 3x improvement: 331 ms and 49k tok/nanos
             # 2. torch.autocast to BF16 improves a bit, but not a lot: 290ms and 56k tok/nanos
             # 3. torch.compile improves by around 2.3x: 124ms per batch and 132k tok/nanos
+            # 3. Using FlashAttention -> torch.nn.function.scaled_dot_product 90ms per batch and 180k tok/nanos
             torch.cuda.synchronize()
 
         t1 = time.time()
