@@ -56,6 +56,8 @@ else:
     print(f"using device {device}")
 
 # DDP launch for 8 GPUs
+# For docker bridge, make sure you export the localhost as the master addr
+# export MASTER_ADDR=127.0.0.1
 # torchrun --standalone --nproc-per-node=8 src/__init__.py
 
 manual_seed = 0x1337_b00b
@@ -104,10 +106,11 @@ def gpt2_train():
         from torch.nn.parallel import DistributedDataParallel as DDP
         # Wrap the model in a Distributed Data container
         model = DDP(model, device_ids=[ddp_local_rank])
+    raw_model = model.module if ddp else model # always contains the "raw" unwrapped model
 
     # Create a training optimizer
     # optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
-    optim = model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
+    optim = raw_model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
 
     num_iters = 50
     # Training loop
@@ -175,7 +178,8 @@ def gpt2_train():
             # 7. With gradient accumulation (batch get 0.5M) -> 2670ms per batch, which is roughly
             # 32 (micro batches) * 87ms from step 5 above and 196k tok / nanos which is an increase
             # in token size
-            # 
+            # 8. With DDP across 8 GPUs:
+            #   352ms per 0.5M batch (7.5x) improvement and 1.5M tok/nanos (8x improvement)
             torch.cuda.synchronize()
 
         t1 = time.time()
