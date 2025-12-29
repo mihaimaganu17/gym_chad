@@ -68,6 +68,7 @@ def gpt2_train():
         # Zero out the gradients
         optim.zero_grad()
 
+        
         # We use gradient accumulationg to simulate a big batch size (0.5 million)
         for micro_step in grad_acc_steps:
             # get the next batch
@@ -80,6 +81,8 @@ def gpt2_train():
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
                 # forward pass
                 logits, loss = model(x, y)
+            # Normalize the loss to compensate for the batch
+            loss = loss / grad_acc_steps
             # perform a backward pass and deposit gradients without zeroing them, because we are
             # doing grad accumulation
             loss.backward()
