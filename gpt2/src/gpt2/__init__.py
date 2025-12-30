@@ -102,8 +102,10 @@ def gpt2_train():
     gpt_config = GPTConfig(vocab_size=50304)
 
     # Loading Dataset
-    ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size,
-        process_rank=ddp_rank, num_processes=ddp_world_size)
+    #ds = Dataset("../micrograd3/tiny_shakespeare.txt", block_size, batch_size,
+    #    process_rank=ddp_rank, num_processes=ddp_world_size)
+    ds = Dataset("src/gpt2/finewiki", block_size, batch_size, process_rank=ddp_rank,
+                 num_processes=ddp_world_size, shard_dir=True, split='train')
 
     # Create model
     model = GPT(gpt_config)
@@ -217,9 +219,14 @@ max_lr = 6e-4
 min_lr = max_lr * 0.1
 # Warmup steps for the learning rate -> For how many steps we want to increase the learning rate in
 # the beginning
-warmup_steps = 10
+# warmup_steps = 10
 # How many steps we want to apply the cosine decay for
-max_steps = 50
+# max_steps = 50
+
+# Warmup steps used by GPT paper 375e6 (tokens) / 2 ** 19 (batch size of 0.5M) = 715
+warmup_steps = 715
+# We have roughly 10B tokens in the fineweb edu dataset / 2 ** 19 (batch size of 0.5M) = 19073
+max_steps = 19073
 
 def get_lr(step):
     # Learning rate scheduler with warmup and cosine decay
