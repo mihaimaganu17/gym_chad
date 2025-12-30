@@ -1,10 +1,19 @@
 import torch
 import tiktoken
+import os
+import numpy as np
 
+
+def load_tokens(filename):
+    """Load tokens from a numpy file"""
+    tokens = np.load(filename)
+    tokens = torch.tensor(tokens, dtype=torch.long)
+    return tokens
+    
 
 class Dataset:
-    def __init__(self, file_name: str, block_size: int, batch_size: int,
-                 process_rank: int = 0, num_processes: int = 1):
+    def __init__(self, file_name: str, block_size: int, batch_size: int, process_rank: int = 0,
+                 num_processes: int = 1, shard_dir: bool = False, split = None):
         """Initialise a dataset from a file
         
         Parameters:
@@ -14,13 +23,33 @@ class Dataset:
             :param process_rank: For a multiprocess computation, the id of the current process
             :param num_processes: For a multiprocess computation, the total number of processes
                 that sample data in parallel
-            pass
+            :param shard_dir: Whether or not the file name is a directory with shards
+            :param split: If there is a shard_dir, which split to load
         """
 
         self.text = None
+        self.shard_dir = shard_dir
+        self.split = split
+        master_process = process_rank == 0
+
         # Dataset prep
-        with open(file_name, "r", encoding="utf-8") as f:
-            self.text = f.read()
+        if shard_dir:
+            # Make sure the split is either train or validation
+            assert split in {'train', 'val'}
+            shards = os.listdir(file_name)
+            # Collect all shards for that split
+            shards = [s for s in shards if split in s]
+            shards = sorted(shards)
+            # Construct filepaths
+            shards = [os.path.join(file_name, s) for s in shards]
+            self.shards = shards
+            assert len(shards) > 0, f"no shards found for split {split}"
+            if master_process:
+                print(f"found {len(shards)} shards for split") 
+            self.current_shard = 0
+        else:
+            with open(file_name, "r", encoding="utf-8") as f:
+                self.text = f.read()
 
         # Context max length
         self.block_size = block_size
@@ -41,9 +70,12 @@ class Dataset:
 
 
     def _tokenise(self):
-        # This essentially takes the place of _build_vocab and _build_encode_decode
-        enc = tiktoken.get_encoding('gpt2')
-        self.tokens = torch.tensor(enc.encode(self.text))
+        if self.shard_dir:
+            self.tokens = load_tokens(self.shards[self.current_shard])
+        else:
+            # This essentially takes the place of _build_vocab and _build_encode_decode
+            enc = tiktoken.get_encoding('gpt2')
+            self.tokens = torch.tensor(enc.encode(self.text))
 
         print(f"Loaded {len(self.tokens)} tokens")
         print(f"1 epoch contains {len(self.tokens) / (self.batch_size * self.block_size)} batches")
