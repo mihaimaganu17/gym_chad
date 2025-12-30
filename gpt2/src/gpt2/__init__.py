@@ -163,6 +163,8 @@ def gpt2_train():
             if master_process:
                 print(f"validation loss: {val_loss_accum.item():.4f}")
 
+        # Make sure the model is in train mode
+        model.train()
 
         # Zero out the gradients
         optim.zero_grad()
