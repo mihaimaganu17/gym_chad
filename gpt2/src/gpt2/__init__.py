@@ -107,6 +107,9 @@ def gpt2_train():
     #    process_rank=ddp_rank, num_processes=ddp_world_size)
     ds = Dataset("src/gpt2/finewiki", block_size, batch_size, process_rank=ddp_rank,
                  num_processes=ddp_world_size, shard_dir=True, split='train')
+    # validation loader for validation shards
+    val_loader = Dataset("src/gpt2/finewiki", block_size, batch_size, process_rank=ddp_rank,
+                 num_processes=ddp_world_size, shard_dir=True, split='val')
 
     # Create model
     model = GPT(gpt_config)

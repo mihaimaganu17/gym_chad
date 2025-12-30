@@ -85,6 +85,13 @@ class Dataset:
         self.current_position = self.process_rank * self.batch_size * self.block_size
 
 
+    def reset(self):
+        # State initialisation at shard 0
+        self.current_shard = 0
+        self.tokens = load_tokens(self.shards[self.current_shard])
+        self.current_position = self.batch_size * self.block_size * self.process_rank
+
+
     def next_batch(self):
         """
         Iteratively get the next batch from the data wrapping at length of data (reseting to 0)
