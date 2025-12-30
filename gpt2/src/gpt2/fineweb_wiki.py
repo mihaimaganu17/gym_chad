@@ -93,7 +93,6 @@ if __name__ == '__main__':
                 shard_index += 1
                 # Reset progress bar
                 progress_bar = None
-                print(remainder, len(tokens), len(all_tokens_np[0:len(tokens)-remainder]), len(tokens[remainder:]))
                 # Populate the next shard with the leftovers of the current doc
                 all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
                 # Update the current token count

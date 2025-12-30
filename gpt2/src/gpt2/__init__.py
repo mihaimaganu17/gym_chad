@@ -63,7 +63,8 @@ else:
 # DDP launch for 8 GPUs
 # For docker bridge, make sure you export the localhost as the master addr
 # In vast.ai, need to export NCCL_SOCKET_IFNAME=eth0 for it to work
-# torchrun --standalone --nproc-per-node=8 src/__init__.py
+# Check network interfaces with `ip -br a`
+# torchrun --standalone --nproc-per-node=8 --nnodes=1 src/__init__.py
 
 manual_seed = 0x1337_b00b
 torch.manual_seed(manual_seed)
@@ -81,7 +82,7 @@ def gpt2_train():
     total_batch_size = 524288 # 2 ** 19, ~0.5M, in number of tokens
     # Hyperparameters
     block_size = 1024 # context length
-    batch_size = 16 # micro batch size
+    batch_size = 64 # micro batch size
 
     # We need to make sure the micro batch size multiplied by the context length and the number of
     # GPUs we use to split and train the data across can divide the total batch size in order to use
@@ -125,7 +126,7 @@ def gpt2_train():
     # optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
     optim = raw_model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
 
-    num_iters = 50
+    num_iters = 5
     # Training loop
     for step in range(num_iters):
         # Start a f timer
