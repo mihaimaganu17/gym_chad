@@ -163,6 +163,10 @@ def gpt2_train():
             if master_process:
                 print(f"validation loss: {val_loss_accum.item():.4f}")
 
+        # Sample from the model
+        if step > 0 and step % 100 == 0:
+            sample_model2(model) 
+
         # Make sure the model is in train mode
         model.train()
 
@@ -293,6 +297,59 @@ def gpt2_inference() -> str:
     model = GPT(GPTConfig())
     model.eval()
     model.to(device)
+
+
+def sample_model2(model):
+    # Put model in evaluation mode
+    model.eval()
+    # Number of sequences to complete
+    num_return_sequences = 4
+    # How many tokens to complete
+    max_new_tokens=32
+    # load the tokens from the tokeniser
+    import tiktoken
+    # Get the token encodings for gpt2
+    enc = tiktoken.get_encoding('gpt2')
+    # Encode the beginning prompt we want completed
+    tokens = enc.encode("Hello, I'm a language model,")
+    # Add the encodings to a tensor
+    tokens = torch.tensor(tokens, dtype=torch.long) # (8,)
+    # Duplicated it 5 times (maybe torch.stack could also work? or torch.cat)
+    tokens = tokens.unsqueeze(0).repeat(num_return_sequences, 1) # (1, 8) -> (5, 8)
+    x = tokens.to(device)
+
+    sample_rng = torch.Generator(device=device)
+    manual_seed = 42 + ddp_rank
+    sample_rng.manual_seed(manual_seed)
+
+    # While we did not get all the tokens that we want
+    while x.size(1) < max_new_tokens:
+        with torch.no_grad():
+            # Forward the model to get the logits
+            logits, _loss = model(x) # (B, T, vocab_size)
+            # Take the last of the logits at the last position
+            logits = logits[:, -1, :] # (B, vocab_size) for the last T
+            # Get the probabilities
+            probs = F.softmax(logits, dim=-1) # (B, vocab_size)
+            # Do top-k sampling of 50 (huggingface pipeline default)
+            # topk_probs here becomes (5, 50), topk_indices is (5, 50)
+            topk_probs, topk_indices = torch.topk(probs, 50, dim=-1)
+            # Select a token from the top-k probs, getting the index inside topk
+            # torch.multinomial returns the indeces in the input list
+            token_idx = torch.multinomial(topk_probs, 1, generator=sample_rng) # (B, 1)
+            # gather the corresponding indices of that token, indices contained in topk
+            xcol = torch.gather(topk_indices, -1, token_idx)
+            # append to the sequence the token indeces
+            x = torch.cat((x, xcol), dim=1)
+
+    # Print the generated text
+    for i in range(num_return_sequences):
+        tokens = x[i, :max_new_tokens].tolist()
+        decoded = enc.decode(tokens)
+        print(f"rank {ddp_rank} > {decoded}")
+
+    # Put model back in traninig mode
+    model.train()
 
 
 def sample_model(model):
