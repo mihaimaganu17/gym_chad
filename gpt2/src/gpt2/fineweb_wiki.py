@@ -19,7 +19,7 @@ dataset = "wiki"
 local_dir = "finewiki" if dataset == 'wiki' else "edu_fineweb10B"
 remote_name = "ro" if dataset == 'wiki' else "sample-10BT"
 # 100M tokens per shard for edu and 10M tokens per shard for wiki
-shard_size = int(1e5) if dataset == 'wiki' else int(1e8)
+shard_size = int(1e8) if dataset == 'wiki' else int(1e8)
 
 # create the cache in the local directory if it doesn't exist yet
 DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), local_dir)
@@ -86,13 +86,14 @@ if __name__ == '__main__':
                 # Split the document into whatever fits in this shard; the remainder goes to the next
                 # one
                 remainder = shard_size - token_count
-                all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
                 progress_bar.update(remainder)
+                all_tokens_np[token_count:token_count+remainder] = tokens[:remainder]
                 write_datafile(filename, all_tokens_np)
                 # Go to the next shard
                 shard_index += 1
                 # Reset progress bar
                 progress_bar = None
+                print(remainder, len(tokens), len(all_tokens_np[0:len(tokens)-remainder]), len(tokens[remainder:]))
                 # Populate the next shard with the leftovers of the current doc
                 all_tokens_np[0:len(tokens)-remainder] = tokens[remainder:]
                 # Update the current token count
