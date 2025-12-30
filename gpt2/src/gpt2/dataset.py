@@ -30,7 +30,7 @@ class Dataset:
         self.text = None
         self.shard_dir = shard_dir
         self.split = split
-        master_process = process_rank == 0
+        self.master_process = process_rank == 0
 
         # Dataset prep
         if shard_dir:
@@ -44,8 +44,8 @@ class Dataset:
             shards = [os.path.join(file_name, s) for s in shards]
             self.shards = shards
             assert len(shards) > 0, f"no shards found for split {split}"
-            if master_process:
-                print(f"found {len(shards)} shards for split") 
+            if self.master_process:
+                print(f"found {len(shards)} shards for split {split}") 
             self.current_shard = 0
         else:
             with open(file_name, "r", encoding="utf-8") as f:
@@ -77,8 +77,10 @@ class Dataset:
             enc = tiktoken.get_encoding('gpt2')
             self.tokens = torch.tensor(enc.encode(self.text))
 
-        print(f"Loaded {len(self.tokens)} tokens")
-        print(f"1 epoch contains {len(self.tokens) / (self.batch_size * self.block_size)} batches")
+
+        if self.master_process:
+            print(f"Loaded {len(self.tokens)} tokens")
+            print(f"1 epoch contains {len(self.tokens) / (self.batch_size * self.block_size)} batches")
 
         # Start at the beginning to sample batches by striding across the data, taking into account
         # the current process id such that each process has its own disjoint data window

@@ -11,8 +11,6 @@ device = 'cuda' if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
     device = torch.device("mps") if torch.backends.mps.is_available() else torch.device('cpu')
 
-print(f"Using device {device}")
-
 # Enable TF32
 # Recommended read: https://docs.pytorch.org/tutorials/recipes/recipes/amp_recipe.html
 # https://docs.pytorch.org/docs/stable/notes/amp_examples.html
@@ -58,13 +56,15 @@ else:
         device = 'cuda'
     elif torch.mps.is_available():
         device = 'mps'
-    print(f"using device {device}")
+    
+if master_process:
+    print(f"Using device {device}")
 
 # DDP launch for 8 GPUs
 # For docker bridge, make sure you export the localhost as the master addr
 # In vast.ai, need to export NCCL_SOCKET_IFNAME=eth0 for it to work
 # Check network interfaces with `ip -br a`
-# torchrun --standalone --nproc-per-node=8 --nnodes=1 src/__init__.py
+# torchrun --standalone --nproc-per-node=8 --nnodes=1 src/gpt2/__init__.py
 
 manual_seed = 0x1337_b00b
 torch.manual_seed(manual_seed)
@@ -129,14 +129,14 @@ def gpt2_train():
     # optim = torch.optim.AdamW(model.parameters(), lr=3e-4, betas=(0.9, 0.95), eps=1e-8)
     optim = raw_model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
 
-    num_iters = 5
+    num_iters = 6
     # Training loop
     for step in range(num_iters):
         # Start a f timer
         t0 = time.time()
 
         # Evaluation step every 100 steps
-        if step % 100 == 0:
+        if step % 6 == 0:
             # Put the model in evaluation mode
             model.eval()
             # Reset the validation loader
@@ -164,7 +164,7 @@ def gpt2_train():
                 print(f"validation loss: {val_loss_accum.item():.4f}")
 
         # Sample from the model
-        if step > 0 and step % 100 == 0:
+        if step > 0 and step % 6 == 0:
             sample_model2(model) 
 
         # Make sure the model is in train mode
@@ -346,7 +346,8 @@ def sample_model2(model):
     for i in range(num_return_sequences):
         tokens = x[i, :max_new_tokens].tolist()
         decoded = enc.decode(tokens)
-        print(f"rank {ddp_rank} > {decoded}")
+        if master_process:
+            print(f"rank {ddp_rank} > {decoded}")
 
     # Put model back in traninig mode
     model.train()
