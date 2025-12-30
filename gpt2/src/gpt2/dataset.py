@@ -13,7 +13,7 @@ class Dataset:
             :param batch_size: Size for a single batch we are processing in one call to the forward
             :param process_rank: For a multiprocess computation, the id of the current process
             :param num_processes: For a multiprocess computation, the total number of processes
-                the sample data in parallel
+                that sample data in parallel
             pass
         """
 
@@ -49,7 +49,7 @@ class Dataset:
         print(f"1 epoch contains {len(self.tokens) / (self.batch_size * self.block_size)} batches")
 
         # Start at the beginning to sample batches by striding across the data, taking into account
-        # the current process id
+        # the current process id such that each process has its own disjoint data window
         self.current_position = self.process_rank * self.batch_size * self.block_size
 
 
@@ -64,6 +64,7 @@ class Dataset:
         # Advance the position in the tensor by strinding across the entire chunk of processes
         self.current_position += B * T * self.num_processes
         # If loading the next batch would be out of bounds, reset
+        # This is not a great heuristic as we may have leftovers at the end of the data set
         if self.current_position + B*T*self.num_processes+1 > len(self.tokens):
             self.current_position = self.process_rank * self.batch_size * self.block_size
         return x,y

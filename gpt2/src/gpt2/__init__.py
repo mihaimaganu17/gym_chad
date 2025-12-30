@@ -31,19 +31,24 @@ from torch.distributed import init_process_group, destroy_process_group
 ddp = int(os.environ.get('RANK', -1)) != -1
 # If it is not running, set it up
 if ddp:
+    # DDP only available in CUDA
     assert torch.cuda.is_available(), "We need CUDA for DDP"
     # nccl is default backend for cuda
     init_process_group(backend='nccl')
+    # Get the GPU's id (in the current GPU node) that is associated with this process
     ddp_rank = int(os.environ.get('RANK'))
-    # Used in a multi-node setting
+    # Used in a multi-node setting, is the GPU node's ID.
     ddp_local_rank = int(os.environ.get('LOCAL_RANK'))
+    # Number of total GPUs across all nodes
     ddp_world_size = int(os.environ.get('WORLD_SIZE'))
+    # Device is a combination of the cuda keyword and the id
     device = f"cuda:{ddp_local_rank}"
     torch.cuda.set_device(device)
-    # This process will do logging, checkpointing, etc.
+    # Make the process with 0th id the master process. This process will do logging, checkpointing,
+    # etc.
     master_process = ddp_rank == 0
 else:
-    # vanilla, non-DDP run
+    # vanilla, non-DDP run, a single GPU, a single node
     ddp_rank = 0
     ddp_local_rank = 0
     ddp_world_size = 1 
@@ -78,8 +83,9 @@ def gpt2_train():
     block_size = 1024 # context length
     batch_size = 16 # micro batch size
 
-    # We need to make sure the micro batch size multiplied by the context length can divide the
-    # total batchsize in order to use gradient accumulation.
+    # We need to make sure the micro batch size multiplied by the context length and the number of
+    # GPUs we use to split and train the data across can divide the total batch size in order to use
+    # gradient accumulation.
     assert total_batch_size % (batch_size * block_size * ddp_world_size) == 0
     # For how many steps (forward and backward is a single step, without resetting the gradient)
     # do we need to accumulate the gradient for
@@ -89,7 +95,10 @@ def gpt2_train():
         print(f"total desired batch size {total_batch_size}")
         print(f"=> accumulating gradient for {grad_acc_steps} steps")
 
-    # 50304 is a nice number because it can be divided by 2 multiple times, instead of 50257
+    # 50304 is a nice number because it can be divided by 2 multiple times, instead of 50257. This
+    # means we will have some junk, unused embeddings for tokens, for which the model will pull the
+    # gradient towards zero, such that is is never used. Although this increases the number of
+    # computations needed, it results in faster processing.
     gpt_config = GPTConfig(vocab_size=50304)
 
     # Loading Dataset
@@ -106,6 +115,8 @@ def gpt2_train():
         from torch.nn.parallel import DistributedDataParallel as DDP
         # Wrap the model in a Distributed Data container
         model = DDP(model, device_ids=[ddp_local_rank])
+
+    # We need the raw model to access custom written functions for it's module
     raw_model = model.module if ddp else model # always contains the "raw" unwrapped model
 
     # Create a training optimizer
@@ -115,14 +126,15 @@ def gpt2_train():
     num_iters = 50
     # Training loop
     for step in range(num_iters):
+        # Start a f timer
         t0 = time.time()
         # Zero out the gradients
         optim.zero_grad()
 
-        # Keep track of the accumulated loss
+        # Keep track of the accumulated loss over the microbatches
         loss_accum = 0.0
         
-        # We use gradient accumulationg to simulate a big batch size (0.5 million)
+        # We use gradient accumulation to simulate a big batch size (0.5 million)
         for micro_step in range(grad_acc_steps):
             # get the next batch
             x, y = ds.next_batch()
@@ -131,10 +143,13 @@ def gpt2_train():
 
             # user torch autocast to automatically handle type casting for us to bfloat16 in all the
             # operations on the buffer. only cuda ampere enabled
+            # bfloat16 has 16 bits: sign bit, 8 range exponent and 7 precision mantissa bits
+            #  |s|eeeeeeee|mmmmmmm|
+            # 15 14       7       0
             with torch.autocast(device_type='cuda', dtype=torch.bfloat16):
                 # forward pass
                 logits, loss = model(x, y)
-            # Normalize the loss to compensate for the batch
+            # Normalize the loss to compensate for the micro batch accumulation
             loss = loss / grad_acc_steps
             # Keep track of the accumulated loss
             loss_accum += loss.detach()
@@ -144,18 +159,19 @@ def gpt2_train():
             if ddp:
                 # This boolean is used instead of no_grad() context manager
                 model.require_backward_grad_sync = (micro_step + 1 == grad_acc_steps)
-            # perform a backward pass and deposit gradients without zeroing them, because we are
-            # doing grad accumulation
+            # perform a backward pass and deposit gradients without zeroing them inside this
+            # micro step for loop, because we are doing grad accumulation
             loss.backward()
 
-        # If we are using DDP, we also want to average the accumulated loss across all ranks and it
-        # deposits that average across all the ranks
+        # If we are using DDP, we also want to average the accumulated loss across all ranks and
+        # deposit that average across all the ranks
         if ddp:
             dist.all_reduce(loss_accum, op=dist.ReduceOp.AVG)
         # Clip the global norm of the gradients (L2 norm) in order to scale gradients
         norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        # Determine and set the learning rate for this iteration
+        # Determine and set the learning rate for this iteration using the learning rate scheduler
         lr = get_lr(step)
+        # Set the learning rate for each optimizer parameter group
         for param_group in optim.param_groups:
             param_group['lr'] = lr
         # Run an optimisation step
@@ -209,18 +225,22 @@ def get_lr(step):
     # Learning rate scheduler with warmup and cosine decay
     import math
     
-    # 1) Linear warmup of learning rate
+    # 1) Linear warmup of learning rate. We warm up the learning rate up to the maximum value in
+    # the given number of steps
     if step < warmup_steps:
         return max_lr * (step + 1) / warmup_steps
 
-    # 2) If we already surpassed the threshold for cosine decay, we return the minimum learning rate
+    # 2) If we already reached the total number of steps to perform cosine decay, we return the
+    # minimum learning rate
     if step > max_steps:
         return min_lr
 
     # 3) In between warmup and minimum, use cosine decay
     decay_ratio = (step - warmup_steps) / (max_steps - warmup_steps)
     assert 0 <= decay_ratio <= 1
+    # cos(0) = 1.0 and we scale it by 0.5
     coeff = 0.5 * (1.0 + math.cos(math.pi * decay_ratio))
+    # Apply it in the remaining interval, making sure we start at minimum learning rate
     return min_lr + coeff * (max_lr - min_lr)
 
 

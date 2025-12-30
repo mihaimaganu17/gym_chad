@@ -236,7 +236,8 @@ class GPT(nn.Module):
     def configure_optimizer(self, weight_decay=0.1, learning_rate=6e-4, device='cpu'):
         # Start with all of the candidate parameters (that require grad)
         param_dict = { pn: p for pn, p in self.named_parameters() if p.requires_grad }
-        # Create optimizer groups. Any parameters that is 2D will be weight decayed, otherwise no.
+        # Create optimizer groups. Any parameters that is at least 2D will be weight decayed,
+        # otherwise no.
         # i.e. all weight tensors in matmuls + embeddings decay, all biases and layernorms don't.
         decay_params = [p for n, p in param_dict.items() if p.dim() >= 2]
         nodecay_params = [p for n, p in param_dict.items() if p.dim() < 2]
