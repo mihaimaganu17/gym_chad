@@ -134,6 +134,36 @@ def gpt2_train():
     for step in range(num_iters):
         # Start a f timer
         t0 = time.time()
+
+        # Evaluation step every 100 steps
+        if step % 100 == 0:
+            # Put the model in evaluation mode
+            model.eval()
+            # Reset the validation loader
+            val_loader.reset()
+            # Make sure torch does not keep track of gradients to compute for this step
+            with torch.no_grad():
+                # Keep track of the validation loss
+                val_loss_accum = 0.0
+                # Run for a number of batches
+                val_loss_steps = 20
+
+                for _ in range(val_loss_steps):
+                    x, y = val_loader.next_batch()
+                    x, y = x.to(device), y.to(device)
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                        # forward pass
+                        logits, loss = model(x, y)
+                    # Normalize the loss to compensate for the micro batch accumulation
+                    loss = loss / val_loss_steps 
+                    # Keep track of the accumulated loss
+                    val_loss_accum += loss.detach()
+            if ddp:
+                dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
+            if master_process:
+                print(f"validation loss: {val_loss_accum.item():.4f}")
+
+
         # Zero out the gradients
         optim.zero_grad()
 
