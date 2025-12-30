@@ -98,6 +98,13 @@ class Dataset:
         # If loading the next batch would be out of bounds, reset
         # This is not a great heuristic as we may have leftovers at the end of the data set
         if self.current_position + B*T*self.num_processes+1 > len(self.tokens):
+            # If we are doing shard processing
+            if self.shard_dir:
+                # Go to the next shard, making sure we wrap at the last shard boundary
+                self.current_shard = (self.current_shard + 1) % len(self.shards)
+                # Load tokens from that shard
+                self.tokens = load_tokens(self.shards[self.current_shard])
+            # Go to the correct sliding window position for this process
             self.current_position = self.process_rank * self.batch_size * self.block_size
         return x,y
 
