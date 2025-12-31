@@ -4,11 +4,13 @@ from dataclasses import dataclass
 
 
 import torch
-import math
+import os
 
 # Modellign GPT2 in the huggingface transformers library
 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/gpt2/modeling_gpt2.py
 
+ddp_rank = int(os.environ.get('RANK'))
+master_process = ddp_rank == 0
 
 @dataclass
 class GPTConfig:
@@ -248,15 +250,19 @@ class GPT(nn.Module):
         # Count the number of decay and no decay parameters
         num_decay_params = sum(p.numel() for p in decay_params)
         num_nodecay_params = sum(p.numel() for p in nodecay_params)
-        print(f"num decayed parameter tensors: {len(decay_params)} with {num_decay_params} parameters")
-        print(f"num non-decayed parameter tensors: {len(nodecay_params)} with {num_nodecay_params} parameters")
+
+        if master_process:
+            print(f"num decayed parameter tensors: {len(decay_params)} with {num_decay_params} parameters")
+            print(f"num non-decayed parameter tensors: {len(nodecay_params)} with {num_nodecay_params} parameters")
 
         # Create AdamW optimiser and use the fused version if it is available
         import inspect
         # Check if AdamW has a 'fused' parameter in the signature
         fused_available = 'fused' in inspect.signature(torch.optim.AdamW).parameters
         use_fused = fused_available and 'cuda' in device
-        print(f"using fused AdaW: {use_fused}")
+
+        if master_process:
+            print(f"using fused AdaW: {use_fused}")
         optimizer = torch.optim.AdamW(optim_groups, lr=learning_rate, betas=(0.9, 0.95), eps=1e-8)
         return optimizer
 
