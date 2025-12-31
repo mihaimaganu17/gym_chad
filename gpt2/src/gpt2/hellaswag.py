@@ -142,6 +142,33 @@ def iterate_examples(split):
             example = json.loads(line)
             yield example
 
+def get_most_likely_row(tokens, mask, logits):
+    # evaluate the autoregressive loss at all positions
+    # It is unclear to me why we cut the last logit and the first token, however, my instinct
+    # tells me that this is equivalent to having a context of size N and then predicting a single
+    # next character like we did in training with x and y in the forward pass.
+    shift_logits = (logits[..., :-1, :]).contiguous()
+    shift_tokens = (tokens[..., 1:]).contiguous()
+    flat_shift_logits = shift_logits.view(-1, shift_logits.size(-1))
+    flat_shift_tokens = shift_tokens.view(-1)
+    # Compute the losses without the default reduction of `mean` across the entire example
+    shift_losses = F.cross_entropy(flat_shift_logits, flat_shift_tokens, reduction='none')
+    shift_losses = shift_losses.view(tokens.size(0), -1)
+
+    # Now get the average loss just for the completion region (where mask == 1), in each row
+    # We must shift mask, so we start at the last prompt token
+    shift_mask = (mask[..., 1:].contiguous())
+    masked_shift_losses = shift_losses * shift_mask
+    # Sum and divide by the number of 1s in the mask
+    sum_loss = masked_shift_losses.sum(dim=1)
+    avg_loss = sum_loss / shift_mask.sum(dim=1)
+    # Now we have a loss for each of the 4 completions
+    # the one with the lowest loss should be the most likely
+    _pred = sum_loss.argmin().item()
+    pred_norm = avg_loss.argmin().item()
+
+    return pred_norm
+
 
 @torch.no_grad()
 def evaluate(model_type, device):

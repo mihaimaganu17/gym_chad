@@ -6,6 +6,7 @@ from gpt2.train import GPT, GPTConfig
 from torch.nn import functional as F
 from gpt2.dataset import Dataset
 from torch import distributed as dist
+from gpt2.hellaswag import iterate_examples, render_example, get_most_likely_row
 
 device = 'cuda' if torch.cuda.is_available() else torch.device('cpu')
 if device == torch.device('cpu'):
@@ -176,6 +177,40 @@ def gpt2_train():
                 # Log the validation loss
                 with open(log_file, "a") as f:
                     f.write(f"{step} val {val_loss_accum.item():.4f}\n")
+
+        # Evaluate HellaSwag
+        if (step % 250 == 0 or last_step):
+            num_correct_norm = 0
+            num_total = 0
+            for i, example in enumerate(iterate_examples('val')):
+                # Sampling: only process examples whose index satisfy the following heuristic
+                if i % ddp_world_size != ddp_rank:
+                    continue
+                # render the example into tokens and labels
+                _, tokens, mask, label = render_example(example)
+                tokens = tokens.to(device)
+                mask = mask.to(device)
+                # get the logits
+                with torch.no_grad():
+                    with torch.autocast(device_type=device, dtype=torch.bfloat16):
+                        logits, loss = model(tokens)
+                    pred_norm = get_most_likely_row(tokens, mask, logits)
+                num_total += 1
+                num_correct_norm += int(pred_norm == label)
+
+        # reduce the stats across all processes
+        if ddp:
+            num_total = torch.tensor(num_total, dtype=torch.long, device=device)
+            num_correct_norm = torch.tensor(num_correct_norm, dtype=torch.long, device=device)
+            dist.all_reduce(num_total, op=dist.ReduceOp.SUM)
+            dist.all_reduce(num_correct_norm, op=dist.ReduceOp.SUM)
+            num_total = num_total.item()
+            num_total_norm = num_total_norm.item()
+        acc_norm = num_correct_norm / num_total
+        if master_process:
+            print(f"HellaSwag accuracy: {num_correct_norm}/{num_total}={acc_norm:.4f}")
+            with open(log_file, "a") as f:
+                f.write(f"{step} hella {acc_norm:.4f}\n")
 
         # Sample from the model
         if step > 0 and (step % 250 == 0 or last_step):
