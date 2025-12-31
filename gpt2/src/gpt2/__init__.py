@@ -211,6 +211,17 @@ def gpt2_train():
             with open(log_file, "a") as f:
                 f.write(f"{step} hella {acc_norm:.4f}\n")
 
+            # Save the checkpoint
+            if step > 0 and (step % 5000 == 0 or last_step):
+                checkpoint_path = os.path.join(log_dir, f"model_{step:05d}.pt")
+                checkpoint = {
+                    'model': raw_model.state_dict(),
+                    'config': raw_model.config,
+                    'step': step,
+                    'val_loss': val_loss_accum.item(),
+                }
+                torch.save(checkpoint, checkpoint_path)
+
         # Sample from the model
         if step > 0 and (step % 250 == 0 or last_step):
             sample_model2(model) 
