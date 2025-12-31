@@ -180,7 +180,7 @@ def evaluate(model_type, device):
         flat_shift_tokens = shift_tokens.view(-1)
         # Compute the losses without the default reduction of `mean` across the entire example
         shift_losses = F.cross_entropy(flat_shift_logits, flat_shift_tokens, reduction='none')
-        shift_losses.view(tokens.size(0), -1)
+        shift_losses = shift_losses.view(tokens.size(0), -1)
 
         # Now get the average loss just for the completion region (where mask == 1), in each row
         # We must shift mask, so we start at the last prompt token
