@@ -138,13 +138,16 @@ def gpt2_train():
     optim = raw_model.configure_optimizer(weight_decay=0.1, learning_rate=6e-4, device=device)
 
     num_iters = 5
+
     # Training loop
     for step in range(num_iters):
         # Start a f timer
         t0 = time.time()
+        # Keep track where or not this is the last step
+        last_step = ((step + 1) == num_iters)
 
         # Evaluation step every 100 steps
-        if step % 100 == 0:
+        if step % 250 == 0 or last_step:
             # Put the model in evaluation mode
             model.eval()
             # Reset the validation loader
@@ -170,9 +173,12 @@ def gpt2_train():
                 dist.all_reduce(val_loss_accum, op=dist.ReduceOp.AVG)
             if master_process:
                 print(f"validation loss: {val_loss_accum.item():.4f}")
+                # Log the validation loss
+                with open(log_file, "a") as f:
+                    f.write(f"{step} val {val_loss_accum.item():.4f}\n")
 
         # Sample from the model
-        if step > 0 and step % 100 == 0:
+        if step > 0 and (step % 250 == 0 or last_step):
             sample_model2(model) 
 
         # Make sure the model is in train mode
@@ -257,8 +263,9 @@ def gpt2_train():
         # Only print progress in the master process
         if master_process:
             print(f"{step}. Loss {loss_accum.item()} | lr {lr:.4e} | norm {norm:.4f}-> time: {dt:.2f}ms tok/ns: {tokens_per_nanosecs:.2f}")
-
-    # sample_model(model)
+            # Log the training loss
+            with open(log_file, "a") as f:
+                f.write(f"{step} train {loss_accum.item():.6f}\n")
 
 
 # Maximum learning rate
