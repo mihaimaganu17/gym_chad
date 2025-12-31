@@ -1,7 +1,7 @@
 """
-FineWiki dataset (for testing the script downloading datasets from huggingface)
+FineWiki and FineWeb-edu dataset (for testing the script downloading datasets from huggingface)
 https://huggingface.co/datasets/HuggingFaceFW/finewiki
-Download and tokenizes the data and saves data shards to disk.
+Downloads and tokenizes the data and saves data shards to disk.
 
 Will save shards to the local directory
 """
@@ -18,7 +18,7 @@ dataset = "wiki"
 
 local_dir = "finewiki" if dataset == 'wiki' else "edu_fineweb10B"
 remote_name = "ro" if dataset == 'wiki' else "sample-10BT"
-# 100M tokens per shard for edu and 10M tokens per shard for wiki
+# 100M tokens per shard for edu and 100M tokens per shard for wiki
 shard_size = int(1e8) if dataset == 'wiki' else int(1e8)
 
 # create the cache in the local directory if it doesn't exist yet
@@ -55,13 +55,13 @@ def write_datafile(filename, tokens_np):
 
 
 if __name__ == '__main__':
-
     # Tokenise all documents and write output shards, each of `shard_size` tokens (last shard has remainder)
     nprocs = max(1, os.cpu_count()//2)
     with mp.Pool(nprocs) as pool:
         shard_index = 0
         # Preallocate buffer to hold current shard
         all_tokens_np = np.empty((shard_size,), dtype=np.uint16)
+        # Number of tokens in the current shard
         token_count = 0
         progress_bar = None
 
@@ -70,7 +70,7 @@ if __name__ == '__main__':
             if token_count + len(tokens) < shard_size:
                 # Append the tokens to current shard
                 all_tokens_np[token_count:token_count+len(tokens)] = tokens
-                # Update the token count
+                # Update the token count in the shard
                 token_count += len(tokens)
 
                 # Update the progress bar
