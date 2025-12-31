@@ -78,6 +78,14 @@ def hello():
 # https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/nvidia-a100-datasheet-nvidia-us-2188504-web.pdf
 
 def gpt2_train():
+    # Create the log directory where we will write checkpoints and logs
+    log_dir = "log"
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, f"log.txt")
+    # open for writing to clear the file
+    with open(log_file, "w") as f:
+        pass
+
     # Use gradient accumulation to simulate a big batch size
     total_batch_size = 524288 # 2 ** 19, ~0.5M, in number of tokens
     # Hyperparameters
